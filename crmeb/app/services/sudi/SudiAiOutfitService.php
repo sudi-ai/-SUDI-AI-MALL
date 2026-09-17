@@ -21,15 +21,25 @@ class SudiAiOutfitService
     {
         $anchor = trim($anchor);
         $categories = $categories ?: ['上衣', '裤子', '外套', '鞋'];
-        $categories = array_values(array_unique(array_filter(array_map('strval', $categories))));
-        $groups = [];
 
-        foreach (array_slice($categories, 0, 4) as $category) {
-            $category = trim($category);
+        $normalized = [];
+        foreach ($categories as $category) {
+            if (!is_scalar($category)) {
+                continue;
+            }
+            $category = trim((string)$category);
             if ($category === '') {
                 continue;
             }
+            $category = mb_substr($category, 0, 30);
+            $normalized[$category] = $category;
+            if (count($normalized) >= 4) {
+                break;
+            }
+        }
 
+        $groups = [];
+        foreach (array_values($normalized) as $category) {
             $keyword = trim($anchor . ' ' . $category);
             $result = $this->search->search($keyword, 1, 4);
             if (!$result['list']) {
