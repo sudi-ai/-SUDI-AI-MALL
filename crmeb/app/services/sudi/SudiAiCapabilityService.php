@@ -11,12 +11,12 @@ namespace app\services\sudi;
 class SudiAiCapabilityService
 {
     private const CAPABILITIES = [
-        'shopping_agent' => ['name' => 'AI购物代理', 'enabled' => true],
-        'image_search'   => ['name' => '图搜商品', 'enabled' => true],
-        'size_advisor'   => ['name' => 'AI尺码助手', 'enabled' => true],
-        'outfit_advisor' => ['name' => 'AI搭配购买', 'enabled' => true],
-        'customer_ai'    => ['name' => 'AI客服', 'enabled' => true],
-        'store_manager'  => ['name' => 'AI店长', 'enabled' => true],
+        'shopping_agent' => ['name' => 'AI购物代理', 'enabled' => true, 'status' => 'available'],
+        'image_search'   => ['name' => '图搜商品', 'enabled' => false, 'status' => 'planned'],
+        'size_advisor'   => ['name' => 'AI尺码助手', 'enabled' => true, 'status' => 'available'],
+        'outfit_advisor' => ['name' => 'AI搭配购买', 'enabled' => true, 'status' => 'available'],
+        'customer_ai'    => ['name' => 'AI客服', 'enabled' => true, 'status' => 'available'],
+        'store_manager'  => ['name' => 'AI店长', 'enabled' => false, 'status' => 'admin_pending'],
     ];
 
     public function all(): array
