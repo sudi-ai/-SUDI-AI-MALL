@@ -39,6 +39,9 @@ class AiController
             ['limit', 12],
         ], true);
 
+        if (!is_scalar($keyword)) {
+            return app('json')->fail('商品关键词格式错误');
+        }
         $keyword = trim((string)$keyword);
         if ($keyword === '') {
             return app('json')->fail('请输入商品关键词');
@@ -59,6 +62,9 @@ class AiController
             ['limit', 12],
         ], true);
 
+        if (!is_scalar($query)) {
+            return app('json')->fail('购物需求格式错误');
+        }
         $query = trim((string)$query);
         if ($query === '') {
             return app('json')->fail('请描述你想买什么');
@@ -96,6 +102,9 @@ class AiController
             ['categories', []],
         ], true);
 
+        if (!is_scalar($anchor)) {
+            return app('json')->fail('搭配需求格式错误');
+        }
         $anchor = trim((string)$anchor);
         if ($anchor === '') {
             return app('json')->fail('请输入搭配需求');
@@ -114,6 +123,9 @@ class AiController
     public function customer(Request $request)
     {
         [$message] = $request->postMore([['message', '']], true);
+        if (!is_scalar($message)) {
+            return app('json')->fail('咨询内容格式错误');
+        }
         $message = trim((string)$message);
         if ($message === '') {
             return app('json')->fail('请输入咨询内容');
