@@ -8,33 +8,33 @@ namespace app\services\sudi;
  * SUDI AI safety boundary.
  *
  * AI features may recommend, explain and assist, but deterministic commerce
- * state (price, stock, payment and refund) remains owned by CRMEB core.
+ * state remains owned by CRMEB. Unknown actions are denied by default.
  */
 class SudiAiGuardService
 {
-    private const BLOCKED_ACTIONS = [
-        'change_price',
-        'change_stock',
-        'create_payment',
-        'confirm_payment',
-        'refund',
-        'approve_refund',
+    private const ALLOWED_ACTIONS = [
+        'search_product',
+        'recommend_product',
+        'size_advice',
+        'outfit_advice',
+        'customer_reply',
+        'store_diagnose',
     ];
 
     public function canExecute(string $action): bool
     {
-        return !in_array(strtolower(trim($action)), self::BLOCKED_ACTIONS, true);
+        return in_array(strtolower(trim($action)), self::ALLOWED_ACTIONS, true);
     }
 
     public function assertExecutable(string $action): void
     {
         if (!$this->canExecute($action)) {
-            throw new \DomainException('SUDI AI is not allowed to mutate deterministic transaction state: ' . $action);
+            throw new \DomainException('SUDI AI action is not explicitly allowed: ' . $action);
         }
     }
 
-    public function blockedActions(): array
+    public function allowedActions(): array
     {
-        return self::BLOCKED_ACTIONS;
+        return self::ALLOWED_ACTIONS;
     }
 }
