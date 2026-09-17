@@ -15,17 +15,17 @@ class SudiAiSizeAdvisorService
             return ['size' => null, 'confidence' => 'low', 'reason' => '商品缺少尺码表，不能凭空推荐尺码'];
         }
 
-        $fit = (string)($profile['fit'] ?? 'regular');
+        $fit = isset($profile['fit']) && is_scalar($profile['fit']) ? (string)$profile['fit'] : 'regular';
         if (!in_array($fit, ['slim', 'regular', 'loose'], true)) {
             $fit = 'regular';
         }
 
         $profileValues = [
-            'bust_cm' => max(0, (float)($profile['bust_cm'] ?? 0)),
-            'waist_cm' => max(0, (float)($profile['waist_cm'] ?? 0)),
-            'hip_cm' => max(0, (float)($profile['hip_cm'] ?? 0)),
-            'height_cm' => max(0, (float)($profile['height_cm'] ?? 0)),
-            'weight_kg' => max(0, (float)($profile['weight_kg'] ?? 0)),
+            'bust_cm' => $this->number($profile, 'bust_cm'),
+            'waist_cm' => $this->number($profile, 'waist_cm'),
+            'hip_cm' => $this->number($profile, 'hip_cm'),
+            'height_cm' => $this->number($profile, 'height_cm'),
+            'weight_kg' => $this->number($profile, 'weight_kg'),
         ];
 
         $targetEase = [
@@ -36,7 +36,11 @@ class SudiAiSizeAdvisorService
 
         $candidates = [];
         foreach ($sizeChart as $row) {
-            if (!is_array($row) || empty($row['size'])) {
+            if (!is_array($row) || !isset($row['size']) || !is_scalar($row['size'])) {
+                continue;
+            }
+            $size = trim((string)$row['size']);
+            if ($size === '') {
                 continue;
             }
 
@@ -44,7 +48,7 @@ class SudiAiSizeAdvisorService
             $checks = 0;
             foreach (['bust_cm', 'waist_cm', 'hip_cm'] as $key) {
                 $body = $profileValues[$key];
-                $garment = isset($row[$key]) ? (float)$row[$key] : 0.0;
+                $garment = $this->number($row, $key);
                 if ($body <= 0 || $garment <= 0) {
                     continue;
                 }
@@ -54,28 +58,24 @@ class SudiAiSizeAdvisorService
                 $checks++;
             }
 
-            if ($profileValues['weight_kg'] > 0 && isset($row['weight_min_kg'], $row['weight_max_kg'])) {
-                $min = (float)$row['weight_min_kg'];
-                $max = (float)$row['weight_max_kg'];
-                if ($min > 0 && $max >= $min) {
-                    $weight = $profileValues['weight_kg'];
-                    $score += $weight < $min ? ($min - $weight) * 4 : ($weight > $max ? ($weight - $max) * 4 : 0);
-                    $checks++;
-                }
+            $weightMin = $this->number($row, 'weight_min_kg');
+            $weightMax = $this->number($row, 'weight_max_kg');
+            if ($profileValues['weight_kg'] > 0 && $weightMin > 0 && $weightMax >= $weightMin) {
+                $weight = $profileValues['weight_kg'];
+                $score += $weight < $weightMin ? ($weightMin - $weight) * 4 : ($weight > $weightMax ? ($weight - $weightMax) * 4 : 0);
+                $checks++;
             }
 
-            if ($profileValues['height_cm'] > 0 && isset($row['height_min_cm'], $row['height_max_cm'])) {
-                $min = (float)$row['height_min_cm'];
-                $max = (float)$row['height_max_cm'];
-                if ($min > 0 && $max >= $min) {
-                    $height = $profileValues['height_cm'];
-                    $score += $height < $min ? ($min - $height) * 0.5 : ($height > $max ? ($height - $max) * 0.5 : 0);
-                    $checks++;
-                }
+            $heightMin = $this->number($row, 'height_min_cm');
+            $heightMax = $this->number($row, 'height_max_cm');
+            if ($profileValues['height_cm'] > 0 && $heightMin > 0 && $heightMax >= $heightMin) {
+                $height = $profileValues['height_cm'];
+                $score += $height < $heightMin ? ($heightMin - $height) * 0.5 : ($height > $heightMax ? ($height - $heightMax) * 0.5 : 0);
+                $checks++;
             }
 
             if ($checks > 0) {
-                $candidates[] = ['size' => (string)$row['size'], 'score' => $score / $checks, 'checks' => $checks];
+                $candidates[] = ['size' => $size, 'score' => $score / $checks, 'checks' => $checks];
             }
         }
 
@@ -105,7 +105,15 @@ class SudiAiSizeAdvisorService
             'size' => $best['size'],
             'confidence' => $confidence,
             'alternatives' => $alternatives,
-            'reason' => '根据商品真实尺码表与已提供身体数据匹配，仅作为试穿参考',
+            'reason' => '根据提供的商品尺码表与已提供身体数据匹配，仅作为试穿参考',
         ];
+    }
+
+    private function number(array $data, string $key): float
+    {
+        if (!isset($data[$key]) || !is_numeric($data[$key])) {
+            return 0.0;
+        }
+        return max(0.0, (float)$data[$key]);
     }
 }
