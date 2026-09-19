@@ -17,7 +17,7 @@
 				<view class="mt-40">
 					<text class="fs-30 lh-42rpx">商品图片</text>
 				</view>
-				<view class="fs-22 text--w111-999 mt-12">建议：图片尺寸为750*750px，最多上传9张</view>
+				<view class="fs-22 text--w111-999 mt-12">直接上传原图即可，系统会按商城展示适配；最多9张，第一张作为主图</view>
 				<view class="grid-column-4 grid-gap-8rpx mt-20">
 					<view class="relative h-156" v-for="(item,index) in setFormData.slider_image" :key="index">
 						<image :src="item" mode="aspectFill" class="w-full h-156 rd-12rpx"></image>
@@ -49,7 +49,7 @@
 				</view>
 			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30">
-				<view class="fs-30 fw-500 lh-42rpx">规格设置</view>
+				<view class="fs-30 fw-500 lh-42rpx">价格与库存</view>\n\t\t\t\t<view class="fs-22 text--w111-999 mt-12">当前快捷发布为单规格商品；颜色/尺码多规格可在商品管理中继续编辑。</view>
 				<view class="h-106 flex-between-center bb-e">
 					<text class="fs-30 lh-42rpx">售价</text>
 					<view class="flex-1 flex justify-end text-right">
@@ -105,7 +105,7 @@
 			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30 pb-32">
 				<view class="fs-30 lh-42rpx">商品详情</view>
-				<view class="fs-22 text--w111-999 mt-12">建议：图片尺寸为750*750px，最多上传10张</view>
+				<view class="fs-22 text--w111-999 mt-12">直接上传详情原图即可；最多10张，建议按展示顺序上传</view>
 				<view class="grid-column-4 grid-gap-8rpx mt-20">
 					<view class="relative h-156" v-for="(item,index) in contentPicture" :key="index">
 						<image :src="item" mode="aspectFill" class="w-full h-156 rd-12rpx"></image>
@@ -343,11 +343,11 @@ export default {
 			if(!this.setFormData.image) return this.$util.Tips({title: '请上传商品图片'});
 			if(!this.setFormData.cate_id) return this.$util.Tips({title: '请选择商品分类'});
 			if(!this.setFormData.unit_name) return this.$util.Tips({title: '请填写商品单位'});
-			if(!this.setFormData.attr.price) return this.$util.Tips({title: '请填写商品售价'});
-			if(!this.setFormData.attr.cost) return this.$util.Tips({title: '请填写商品成本价'});
-			if(!this.setFormData.attr.ot_price) return this.$util.Tips({title: '请填写商品划线价'});
-			if(!this.setFormData.attr.stock) return this.$util.Tips({title: '请填写商品库存'});
-			if(!this.setFormData.logistics.length) return this.$util.Tips({title: '请选择配送方式'});
+			if(this.setFormData.attr.price === '' || Number(this.setFormData.attr.price) <= 0) return this.$util.Tips({title: '请填写正确的商品售价'});
+			if(this.setFormData.attr.cost === '' || Number(this.setFormData.attr.cost) < 0) return this.$util.Tips({title: '请填写正确的商品成本价'});
+			if(this.setFormData.attr.ot_price === '' || Number(this.setFormData.attr.ot_price) < 0) return this.$util.Tips({title: '请填写正确的商品划线价'});
+			if(this.setFormData.attr.stock === '' || Number(this.setFormData.attr.stock) < 0) return this.$util.Tips({title: '请填写正确的商品库存'});
+			if(!this.setFormData.logistics.length) return this.$util.Tips({title: '请选择配送方式'});\n\t\t\tif(this.setFormData.slider_image.length > 9 || this.contentPicture.length > 10) return this.$util.Tips({title: '商品图片数量超出限制'});
 			if(this.setFormData.freight == 3 && this.setFormData.temp_id == 0) return this.$util.Tips({title: '请选择运费模版'});
 			const html = this.buildEditorImageHtml(this.contentPicture);
 			this.$set(this.setFormData,'content',html);
