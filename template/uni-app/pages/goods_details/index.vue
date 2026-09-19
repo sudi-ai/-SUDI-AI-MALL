@@ -566,7 +566,8 @@ export default {
         toLogin();
         return;
       }
-      uni.navigateTo({ url: "/pages/sudi_ai/size?product_id=" + this.id });
+      const chart = encodeURIComponent(JSON.stringify(this.buildAiSizeChart()));
+      uni.navigateTo({ url: "/pages/sudi_ai/size?product_id=" + this.id + "&chart=" + chart });
     },
     openAiOutfit() {
       const name = encodeURIComponent(this.storeInfo.store_name || "");
@@ -578,6 +579,16 @@ export default {
         return;
       }
       uni.navigateTo({ url: "/pages/sudi_ai/customer?product_id=" + this.id });
+    },
+    buildAiSizeChart() {
+      const attrs = this.attr && Array.isArray(this.attr.productAttr) ? this.attr.productAttr : [];
+      const sizeAttr = attrs.find((item) => {
+        const name = String(item.attr_name || item.name || "").toLowerCase();
+        return name.indexOf("尺码") !== -1 || name === "size";
+      });
+      if (!sizeAttr) return [];
+      const values = sizeAttr.attr_values || sizeAttr.attr_value || [];
+      return (Array.isArray(values) ? values : []).slice(0, 30).map((size) => ({ size: String(size) }));
     },
     // 操作菜单
     moreNav() {
