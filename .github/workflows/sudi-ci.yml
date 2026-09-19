@@ -69,3 +69,94 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: ThinkPHP CLI smoke test
         run: php think list >/tmp/sudi-think-list.txt
+
+  mysql-redis-integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: crmeb31
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    defaults:
+      run:
+        working-directory: crmeb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: json,curl,bcmath,mbstring,zip,simplexml,pdo_mysql,redis
+          coverage: none
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Configure test environment
+        run: |
+          cat > .env <<'EOF'
+          [APP]
+          DEBUG = true
+          [DATABASE]
+          TYPE = mysql
+          HOSTNAME = 127.0.0.1
+          DATABASE = crmeb31
+          USERNAME = root
+          PASSWORD = root
+          HOSTPORT = 3306
+          CHARSET = utf8mb4
+          PREFIX = eb_
+          DEBUG = true
+          [REDIS]
+          REDIS_HOSTNAME = 127.0.0.1
+          PORT = 6379
+          REDIS_PASSWORD =
+          SELECT = 0
+          [CACHE]
+          DRIVER = redis
+          CACHE_PREFIX = sudi-ci:
+          CACHE_TAG_PREFIX = SUDI-CI:
+          EOF
+      - name: Import CRMEB database
+        run: |
+          mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 crmeb31 < public/install/crmeb.sql
+          TABLES=$(mysql -N -h127.0.0.1 -uroot -proot -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='crmeb31'")
+          test "$TABLES" -gt 50
+          echo "CRMEB tables: $TABLES"
+      - name: Verify Redis
+        run: |
+          redis-cli -h 127.0.0.1 SET sudi-ci:ping ok
+          test "$(redis-cli -h 127.0.0.1 GET sudi-ci:ping)" = "ok"
+      - name: Boot CRMEB HTTP API
+        run: |
+          php -S 127.0.0.1:8000 -t public public/index.php >/tmp/sudi-http.log 2>&1 &
+          echo $! >/tmp/sudi-http.pid
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/api/version >/tmp/sudi-version.json; then break; fi
+            sleep 1
+          done
+          cat /tmp/sudi-version.json
+          test -s /tmp/sudi-version.json
+      - name: Verify SUDI AI route responds
+        run: |
+          curl -fsS http://127.0.0.1:8000/api/sudi/ai/capabilities >/tmp/sudi-ai.json
+          cat /tmp/sudi-ai.json
+          grep -q "capabilities" /tmp/sudi-ai.json
+      - name: Dump server log on failure
+        if: failure()
+        run: cat /tmp/sudi-http.log || true
