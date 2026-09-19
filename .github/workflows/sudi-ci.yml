@@ -1,0 +1,49 @@
+name: SUDI Mall CI
+
+on:
+  push:
+    branches: [sudi-ai-dev]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax check
+        run: |
+          set -e
+          find crmeb/app/services/sudi crmeb/app/api/controller/v2/sudi -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l crmeb/app/api/route/sudi.php
+          php -l crmeb/app/api/controller/v1/admin/StoreManageController.php
+          php -l crmeb/app/services/admin/StoreManageServices.php
+          php -l crmeb/app/services/order/StoreCartServices.php
+          php -l crmeb/app/services/order/StoreOrderCreateServices.php
+          php -l crmeb/app/services/pay/PayNotifyServices.php
+          php -l crmeb/app/listener/pay/NotifyListener.php
+          php -l crmeb/crmeb/services/AliPayService.php
+
+  source-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject escaped newline artifacts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [
+            Path('template/uni-app/pages/index/index.vue'),
+            Path('template/uni-app/pages/admin/goods/addGoods.vue'),
+            Path('template/uni-app/pages/sudi_ai/index.vue'),
+          ]
+          bad=[]
+          for p in files:
+              text=p.read_text(encoding='utf-8')
+              if r'\n' in text or r'\t' in text:
+                  bad.append(str(p))
+          if bad:
+              raise SystemExit('escaped newline/tab artifacts: '+', '.join(bad))
+          print('source sanity OK')
+          PY
