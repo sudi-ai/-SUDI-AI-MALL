@@ -64,7 +64,7 @@
 			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30">
 				<view class="fs-30 fw-500 lh-42rpx">价格与库存</view>
-				<view class="fs-22 text--w111-999 mt-12">当前快捷发布为单规格商品；颜色/尺码多规格可在商品管理中继续编辑。</view>
+				<view class="fs-22 text--w111-999 mt-12">基础价格用于单规格商品，也作为多规格 SKU 的默认参考值。</view>
 				<view class="h-106 flex-between-center bb-e">
 					<text class="fs-30 lh-42rpx">售价</text>
 					<view class="flex-1 flex justify-end text-right">
@@ -378,6 +378,9 @@ export default {
 			this.setFormData.temp_id = this.templateList[this.tempIndex].id;
 		},
 		confirmSave(){
+			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText);
+			if((colors.length && !sizes.length) || (!colors.length && sizes.length)) return this.$util.Tips({title: '颜色和尺码请同时填写'});
+			if(colors.length * sizes.length > 100) return this.$util.Tips({title: '颜色尺码组合不能超过100个'});
 			if(!this.applyMultiSku()) return this.$util.Tips({title: '请填写每个颜色尺码的售价和库存'});
 			if(!this.setFormData.store_name) return this.$util.Tips({title: '请输入商品名称'});
 			if(!this.setFormData.image) return this.$util.Tips({title: '请上传商品图片'});
