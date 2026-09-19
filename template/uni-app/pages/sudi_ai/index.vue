@@ -2,7 +2,10 @@
   <view class="sudi-ai-page">
     <view class="hero">
       <text class="title">苏迪 AI 购物</text>
-      <text class="desc">告诉我你想买什么，我只从商城真实在售商品里帮你找。</text>\n      <view class="quick-row">\n        <button v-for="item in quickPrompts" :key="item" class="quick-btn" @click="usePrompt(item)">{{ item }}</button>\n      </view>
+      <text class="desc">告诉我你想买什么，我只从商城真实在售商品里帮你找。</text>
+      <view class="quick-row">
+        <button v-for="item in quickPrompts" :key="item" class="quick-btn" @click="usePrompt(item)">{{ item }}</button>
+      </view>
     </view>
 
     <view class="ask-box">
@@ -11,7 +14,9 @@
     </view>
 
     <view v-if="error" class="message">{{ error }}</view>
-    <view v-if="searched && !loading && !products.length" class="empty">暂时没有找到合适商品，换个说法试试。</view>\n\n    <view v-if="products.length" class="result-head">为你找到 {{ products.length }} 件商品</view>
+    <view v-if="searched && !loading && !products.length" class="empty">暂时没有找到合适商品，换个说法试试。</view>
+
+    <view v-if="products.length" class="result-head">为你找到 {{ products.length }} 件商品</view>
 
     <view v-for="item in products" :key="item.id" class="product" @click="openProduct(item.id)">
       <image :src="item.image" mode="aspectFill" />
@@ -31,7 +36,11 @@ export default {
   data() {
     return { query: "", loading: false, searched: false, products: [], error: "", quickPrompts: ["200元以内外套", "销量好的裤子", "针织开衫", "黑色上衣"] };
   },
-  methods: {\n    usePrompt(text) {\n      this.query = text;\n      this.search();\n    },
+  methods: {
+    usePrompt(text) {
+      this.query = text;
+      this.search();
+    },
     async search() {
       const query = (this.query || "").trim();
       if (!query) {
@@ -65,7 +74,10 @@ export default {
 .hero,.ask-box,.product,.message,.empty{background:#fff;border-radius:20rpx}
 .hero{padding:34rpx;margin-bottom:22rpx}
 .title{display:block;font-size:42rpx;font-weight:700;color:#222}
-.desc{display:block;margin-top:14rpx;font-size:26rpx;line-height:1.6;color:#777}\n.quick-row{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:22rpx}\n.quick-btn{margin:0;padding:0 22rpx;height:58rpx;line-height:58rpx;border-radius:999rpx;background:#f7f7f7;color:#555;font-size:23rpx}\n.result-head{padding:4rpx 4rpx 18rpx;font-size:25rpx;color:#777}
+.desc{display:block;margin-top:14rpx;font-size:26rpx;line-height:1.6;color:#777}
+.quick-row{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:22rpx}
+.quick-btn{margin:0;padding:0 22rpx;height:58rpx;line-height:58rpx;border-radius:999rpx;background:#f7f7f7;color:#555;font-size:23rpx}
+.result-head{padding:4rpx 4rpx 18rpx;font-size:25rpx;color:#777}
 .ask-box{padding:24rpx;margin-bottom:24rpx}
 textarea{width:100%;height:150rpx;background:#f7f7f7;border-radius:14rpx;padding:20rpx;box-sizing:border-box;font-size:28rpx}
 .ask-btn{margin-top:18rpx;background:#ff3366;color:#fff;border-radius:999rpx;font-size:28rpx}
