@@ -62,6 +62,26 @@
 			}
 		},
 		{
+			"path": "pages/sudi_ai/size",
+			"style": {"navigationBarTitleText": "AI 尺码助手"}
+		},
+		{
+			"path": "pages/sudi_ai/outfit",
+			"style": {"navigationBarTitleText": "AI 搭配"}
+		},
+		{
+			"path": "pages/sudi_ai/customer",
+			"style": {"navigationBarTitleText": "AI 客服"}
+		},
+		{
+			"path": "pages/sudi_ai/index",
+			"style": {
+				"navigationBarTitleText": "苏迪 AI 购物",
+				"navigationBarBackgroundColor": "#ffffff",
+				"navigationBarTextStyle": "black"
+			}
+		},
+		{
 			"path": "pages/goods_cate/goods_cate",
 			"style": {
 				"navigationBarTitleText": "商品分类",

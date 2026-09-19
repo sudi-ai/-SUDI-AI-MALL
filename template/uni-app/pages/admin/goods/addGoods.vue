@@ -17,7 +17,7 @@
 				<view class="mt-40">
 					<text class="fs-30 lh-42rpx">商品图片</text>
 				</view>
-				<view class="fs-22 text--w111-999 mt-12">建议：图片尺寸为750*750px，最多上传9张</view>
+				<view class="fs-22 text--w111-999 mt-12">直接上传原图即可，系统会按商城展示适配；最多9张，第一张作为主图</view>
 				<view class="grid-column-4 grid-gap-8rpx mt-20">
 					<view class="relative h-156" v-for="(item,index) in setFormData.slider_image" :key="index">
 						<image :src="item" mode="aspectFill" class="w-full h-156 rd-12rpx"></image>
@@ -48,8 +48,23 @@
 					</view>
 				</view>
 			</view>
+			<view class="w-full bg--w111-fff rd-16rpx mt-22 p-30">
+				<view class="fs-30 fw-500 lh-42rpx">颜色和尺码</view>
+				<view class="fs-22 text--w111-999 mt-12">卖女装时直接填写，例如颜色：黑色,灰色；尺码：XS,S,M,L。留空则按单规格发布。</view>
+				<input class="sudi-spec-input mt-20" v-model="colorText" placeholder="颜色，用逗号分开，例如：黑色,灰色" />
+				<input class="sudi-spec-input mt-16" v-model="sizeText" placeholder="尺码，用逗号分开，例如：XS,S,M,L" />
+				<view v-if="skuPreview.length" class="mt-20">
+					<view class="fs-24 text--w111-666 mb-12">将生成 {{skuPreview.length}} 个规格</view>
+					<view class="sudi-sku-row" v-for="(sku,index) in skuPreview" :key="index">
+						<text class="sudi-sku-name">{{sku.color}} / {{sku.size}}</text>
+						<input type="digit" v-model="sku.price" placeholder="售价" />
+						<input type="number" v-model="sku.stock" placeholder="库存" />
+					</view>
+				</view>
+			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30">
-				<view class="fs-30 fw-500 lh-42rpx">规格设置</view>
+				<view class="fs-30 fw-500 lh-42rpx">价格与库存</view>
+				<view class="fs-22 text--w111-999 mt-12">基础价格用于单规格商品，也作为多规格 SKU 的默认参考值。</view>
 				<view class="h-106 flex-between-center bb-e">
 					<text class="fs-30 lh-42rpx">售价</text>
 					<view class="flex-1 flex justify-end text-right">
@@ -105,7 +120,7 @@
 			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30 pb-32">
 				<view class="fs-30 lh-42rpx">商品详情</view>
-				<view class="fs-22 text--w111-999 mt-12">建议：图片尺寸为750*750px，最多上传10张</view>
+				<view class="fs-22 text--w111-999 mt-12">直接上传详情原图即可；最多10张，建议按展示顺序上传</view>
 				<view class="grid-column-4 grid-gap-8rpx mt-20">
 					<view class="relative h-156" v-for="(item,index) in contentPicture" :key="index">
 						<image :src="item" mode="aspectFill" class="w-full h-156 rd-12rpx"></image>
@@ -240,13 +255,37 @@ export default {
 			isMore: false,
 			visibleClass: false,
 			templateList: [],
-			tempIndex: 0
+			tempIndex: 0,
+			colorText: '',
+			sizeText: '',
+			skuPreview: []
 		}
 	},
 	onLoad(){
 		this.getTemlate();
 	},
+	watch: {
+		colorText(){ this.buildSkuPreview(); },
+		sizeText(){ this.buildSkuPreview(); }
+	},
 	methods: {
+		parseSpecText(text){ return String(text || '').split(/[,，]/).map(v=>v.trim()).filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,20); },
+		buildSkuPreview(){
+			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText);
+			if(!colors.length || !sizes.length){ this.skuPreview=[]; return; }
+			const old={}; this.skuPreview.forEach(v=>{old[v.color+'|'+v.size]=v});
+			const next=[]; colors.forEach(color=>sizes.forEach(size=>{const key=color+'|'+size;next.push(old[key]||{color,size,price:this.setFormData.attr.price||'',stock:''})}));
+			this.skuPreview=next.slice(0,100);
+		},
+		applyMultiSku(){
+			if(!this.skuPreview.length){ this.setFormData.spec_type=0; this.setFormData.items=[]; this.setFormData.attrs=[]; return true; }
+			for(const sku of this.skuPreview){ if(sku.price==='' || Number(sku.price)<=0 || sku.stock==='' || Number(sku.stock)<0) return false; }
+			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText), pic=this.setFormData.image;
+			this.setFormData.spec_type=1;
+			this.setFormData.items=[{value:'颜色',detail:colors},{value:'尺码',detail:sizes}];
+			this.setFormData.attrs=this.skuPreview.map((sku,index)=>({detail:{'颜色':sku.color,'尺码':sku.size},attr_arr:[sku.color,sku.size],price:Number(sku.price),cost:Number(this.setFormData.attr.cost||0),ot_price:Number(this.setFormData.attr.ot_price||sku.price),stock:Number(sku.stock),pic,bar_code:'',bar_code_number:'',weight:0,volume:0,brokerage:0,brokerage_two:0,vip_price:0,is_show:1,is_default_select:index===0?1:0,virtual_list:[],coupon_id:0}));
+			return true;
+		},
 		uploadPicture(){
 			let that = this;
 			this.canvasStatus = true
@@ -339,15 +378,20 @@ export default {
 			this.setFormData.temp_id = this.templateList[this.tempIndex].id;
 		},
 		confirmSave(){
+			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText);
+			if((colors.length && !sizes.length) || (!colors.length && sizes.length)) return this.$util.Tips({title: '颜色和尺码请同时填写'});
+			if(colors.length * sizes.length > 100) return this.$util.Tips({title: '颜色尺码组合不能超过100个'});
+			if(!this.applyMultiSku()) return this.$util.Tips({title: '请填写每个颜色尺码的售价和库存'});
 			if(!this.setFormData.store_name) return this.$util.Tips({title: '请输入商品名称'});
 			if(!this.setFormData.image) return this.$util.Tips({title: '请上传商品图片'});
 			if(!this.setFormData.cate_id) return this.$util.Tips({title: '请选择商品分类'});
 			if(!this.setFormData.unit_name) return this.$util.Tips({title: '请填写商品单位'});
-			if(!this.setFormData.attr.price) return this.$util.Tips({title: '请填写商品售价'});
-			if(!this.setFormData.attr.cost) return this.$util.Tips({title: '请填写商品成本价'});
-			if(!this.setFormData.attr.ot_price) return this.$util.Tips({title: '请填写商品划线价'});
-			if(!this.setFormData.attr.stock) return this.$util.Tips({title: '请填写商品库存'});
+			if(this.setFormData.attr.price === '' || Number(this.setFormData.attr.price) <= 0) return this.$util.Tips({title: '请填写正确的商品售价'});
+			if(this.setFormData.attr.cost === '' || Number(this.setFormData.attr.cost) < 0) return this.$util.Tips({title: '请填写正确的商品成本价'});
+			if(this.setFormData.attr.ot_price === '' || Number(this.setFormData.attr.ot_price) < 0) return this.$util.Tips({title: '请填写正确的商品划线价'});
+			if(this.setFormData.attr.stock === '' || Number(this.setFormData.attr.stock) < 0) return this.$util.Tips({title: '请填写正确的商品库存'});
 			if(!this.setFormData.logistics.length) return this.$util.Tips({title: '请选择配送方式'});
+			if(this.setFormData.slider_image.length > 9 || this.contentPicture.length > 10) return this.$util.Tips({title: '商品图片数量超出限制'});
 			if(this.setFormData.freight == 3 && this.setFormData.temp_id == 0) return this.$util.Tips({title: '请选择运费模版'});
 			const html = this.buildEditorImageHtml(this.contentPicture);
 			this.$set(this.setFormData,'content',html);
@@ -423,5 +467,9 @@ export default {
 .top-2{
 	top: 2rpx;
 }
+.sudi-spec-input{height:80rpx;background:#f5f5f5;border-radius:12rpx;padding:0 20rpx;box-sizing:border-box;font-size:28rpx}
+.sudi-sku-row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12rpx;align-items:center;margin-top:12rpx}
+.sudi-sku-row input{height:68rpx;background:#f5f5f5;border-radius:10rpx;padding:0 12rpx;font-size:24rpx;box-sizing:border-box}
+.sudi-sku-name{font-size:24rpx;color:#333}
 
 </style>

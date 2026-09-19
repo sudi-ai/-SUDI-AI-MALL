@@ -46,7 +46,7 @@ class NotifyListener
                 if (($count = strpos($notify['out_trade_no'], '_')) !== false) {
                     $notify['out_trade_no'] = substr($notify['out_trade_no'], $count + 1);
                 }
-                return (new Hook(PayNotifyServices::class, 'wechat'))->listen($notify['attach'], $notify['out_trade_no'], $notify['transaction_id'], $payType);
+                return (new Hook(PayNotifyServices::class, 'wechat'))->listen($notify['attach'], $notify['out_trade_no'], $notify['transaction_id'], $payType, $notify['total_amount'] ?? null);
             }
 
             if ($notify['attach'] === 'wechat' && isset($notify['out_trade_no'])) {

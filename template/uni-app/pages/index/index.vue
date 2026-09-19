@@ -114,6 +114,10 @@
         <!-- #endif -->
       </template>
     </PageDesign>
+    <view class="sudi-ai-entry" @click="openSudiAi">
+      <text class="sudi-ai-entry-title">AI 购物</text>
+      <text class="sudi-ai-entry-desc">告诉我你想买什么</text>
+    </view>
     <!-- #ifdef APP -->
     <app-update ref="appUpdate" :force="true" :tabbar="false"></app-update>
     <!-- #endif -->
@@ -374,6 +378,9 @@ export default {
     uni.stopPullDownRefresh();
   },
   methods: {
+    openSudiAi() {
+      uni.navigateTo({ url: "/pages/sudi_ai/index" });
+    },
     ...mapMutations(["SET_AUTOPLAY", "SET_NEARBY"]),
     checkMyApplet() {
       wx.checkIsAddedToMyMiniProgram({
@@ -1016,4 +1023,10 @@ export default {
 .select {
   border: 1px solid var(--view-theme);
 }
+</style>
+
+<style scoped>
+.sudi-ai-entry{position:fixed;right:24rpx;bottom:150rpx;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;width:132rpx;height:132rpx;border-radius:50%;background:#ff3366;color:#fff;box-shadow:0 8rpx 24rpx rgba(0,0,0,.14)}
+.sudi-ai-entry-title{font-size:27rpx;font-weight:700}
+.sudi-ai-entry-desc{margin-top:4rpx;font-size:18rpx;opacity:.9}
 </style>

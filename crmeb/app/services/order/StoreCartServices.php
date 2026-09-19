@@ -293,7 +293,12 @@ class StoreCartServices extends BaseServices
             ]]);
 
             if ($cart) {
-                $cart->cart_num = $cart_num + $cart->cart_num;
+                $newCartNum = $cart_num + $cart->cart_num;
+                $nowStock = (int)($attrInfo['stock'] ?? 0);
+                if ($newCartNum > $nowStock) {
+                    throw new ApiException('该商品库存不足，当前规格最多可购买 {:num} 件', ['num' => $nowStock]);
+                }
+                $cart->cart_num = $newCartNum;
                 $cart->add_time = time();
                 $cart->save();
                 return $cart->id;
