@@ -1024,4 +1024,9 @@ export default {
   border: 1px solid var(--view-theme);
 }
 </style>
-\n<style scoped>\n.sudi-ai-entry{position:fixed;right:24rpx;bottom:150rpx;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;width:132rpx;height:132rpx;border-radius:50%;background:#ff3366;color:#fff;box-shadow:0 8rpx 24rpx rgba(0,0,0,.14)}\n.sudi-ai-entry-title{font-size:27rpx;font-weight:700}\n.sudi-ai-entry-desc{margin-top:4rpx;font-size:18rpx;opacity:.9}\n</style>\n
+
+<style scoped>
+.sudi-ai-entry{position:fixed;right:24rpx;bottom:150rpx;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;width:132rpx;height:132rpx;border-radius:50%;background:#ff3366;color:#fff;box-shadow:0 8rpx 24rpx rgba(0,0,0,.14)}
+.sudi-ai-entry-title{font-size:27rpx;font-weight:700}
+.sudi-ai-entry-desc{margin-top:4rpx;font-size:18rpx;opacity:.9}
+</style>
