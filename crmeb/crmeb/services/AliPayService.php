@@ -236,7 +236,8 @@ class AliPayService
                 $data = [
                     'attach' => $notify->attach,
                     'out_trade_no' => $notify->out_trade_no,
-                    'transaction_id' => $notify->trade_no
+                    'transaction_id' => $notify->trade_no,
+                    'total_amount' => $notify->total_amount ?? ''
                 ];
 
                 return Event::until('NotifyListener', [$data, PayServices::ALIAPY_PAY]);
@@ -265,6 +266,8 @@ class AliPayService
         $postOrder['trade_status'] = $paramInfo['trade_status'] ?? '';
         //备注
         $postOrder['attach'] = isset($paramInfo['passback_params']) ? urldecode($paramInfo['passback_params']) : '';
+        //支付宝实际支付金额，必须传递到具体业务层再次和数据库订单金额核对
+        $postOrder['total_amount'] = isset($paramInfo['total_amount']) ? (string)$paramInfo['total_amount'] : '';
         // 苏迪商城支付加固：验签之外，还必须确认通知确实属于当前支付宝应用。
         // 金额必须在具体业务订单层与数据库应付金额核对，不能只相信第三方回调字段。
         $notifyAppId = (string)($paramInfo['app_id'] ?? '');
