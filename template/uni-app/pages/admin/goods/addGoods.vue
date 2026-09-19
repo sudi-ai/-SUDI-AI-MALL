@@ -48,6 +48,20 @@
 					</view>
 				</view>
 			</view>
+			<view class="w-full bg--w111-fff rd-16rpx mt-22 p-30">
+				<view class="fs-30 fw-500 lh-42rpx">颜色和尺码</view>
+				<view class="fs-22 text--w111-999 mt-12">卖女装时直接填写，例如颜色：黑色,灰色；尺码：XS,S,M,L。留空则按单规格发布。</view>
+				<input class="sudi-spec-input mt-20" v-model="colorText" placeholder="颜色，用逗号分开，例如：黑色,灰色" />
+				<input class="sudi-spec-input mt-16" v-model="sizeText" placeholder="尺码，用逗号分开，例如：XS,S,M,L" />
+				<view v-if="skuPreview.length" class="mt-20">
+					<view class="fs-24 text--w111-666 mb-12">将生成 {{skuPreview.length}} 个规格</view>
+					<view class="sudi-sku-row" v-for="(sku,index) in skuPreview" :key="index">
+						<text class="sudi-sku-name">{{sku.color}} / {{sku.size}}</text>
+						<input type="digit" v-model="sku.price" placeholder="售价" />
+						<input type="number" v-model="sku.stock" placeholder="库存" />
+					</view>
+				</view>
+			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30">
 				<view class="fs-30 fw-500 lh-42rpx">价格与库存</view>\n\t\t\t\t<view class="fs-22 text--w111-999 mt-12">当前快捷发布为单规格商品；颜色/尺码多规格可在商品管理中继续编辑。</view>
 				<view class="h-106 flex-between-center bb-e">
@@ -240,13 +254,37 @@ export default {
 			isMore: false,
 			visibleClass: false,
 			templateList: [],
-			tempIndex: 0
+			tempIndex: 0,
+			colorText: '',
+			sizeText: '',
+			skuPreview: []
 		}
 	},
 	onLoad(){
 		this.getTemlate();
 	},
+	watch: {
+		colorText(){ this.buildSkuPreview(); },
+		sizeText(){ this.buildSkuPreview(); }
+	},
 	methods: {
+		parseSpecText(text){ return String(text || '').split(/[,，]/).map(v=>v.trim()).filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,20); },
+		buildSkuPreview(){
+			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText);
+			if(!colors.length || !sizes.length){ this.skuPreview=[]; return; }
+			const old={}; this.skuPreview.forEach(v=>{old[v.color+'|'+v.size]=v});
+			const next=[]; colors.forEach(color=>sizes.forEach(size=>{const key=color+'|'+size;next.push(old[key]||{color,size,price:this.setFormData.attr.price||'',stock:''})}));
+			this.skuPreview=next.slice(0,100);
+		},
+		applyMultiSku(){
+			if(!this.skuPreview.length){ this.setFormData.spec_type=0; this.setFormData.items=[]; this.setFormData.attrs=[]; return true; }
+			for(const sku of this.skuPreview){ if(sku.price==='' || Number(sku.price)<=0 || sku.stock==='' || Number(sku.stock)<0) return false; }
+			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText), pic=this.setFormData.image;
+			this.setFormData.spec_type=1;
+			this.setFormData.items=[{value:'颜色',detail:colors},{value:'尺码',detail:sizes}];
+			this.setFormData.attrs=this.skuPreview.map((sku,index)=>({detail:{'颜色':sku.color,'尺码':sku.size},attr_arr:[sku.color,sku.size],price:Number(sku.price),cost:Number(this.setFormData.attr.cost||0),ot_price:Number(this.setFormData.attr.ot_price||sku.price),stock:Number(sku.stock),pic,bar_code:'',bar_code_number:'',weight:0,volume:0,brokerage:0,brokerage_two:0,vip_price:0,is_show:1,is_default_select:index===0?1:0,virtual_list:[],coupon_id:0}));
+			return true;
+		},
 		uploadPicture(){
 			let that = this;
 			this.canvasStatus = true
@@ -339,6 +377,7 @@ export default {
 			this.setFormData.temp_id = this.templateList[this.tempIndex].id;
 		},
 		confirmSave(){
+			if(!this.applyMultiSku()) return this.$util.Tips({title: '请填写每个颜色尺码的售价和库存'});
 			if(!this.setFormData.store_name) return this.$util.Tips({title: '请输入商品名称'});
 			if(!this.setFormData.image) return this.$util.Tips({title: '请上传商品图片'});
 			if(!this.setFormData.cate_id) return this.$util.Tips({title: '请选择商品分类'});
@@ -423,5 +462,9 @@ export default {
 .top-2{
 	top: 2rpx;
 }
+.sudi-spec-input{height:80rpx;background:#f5f5f5;border-radius:12rpx;padding:0 20rpx;box-sizing:border-box;font-size:28rpx}
+.sudi-sku-row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12rpx;align-items:center;margin-top:12rpx}
+.sudi-sku-row input{height:68rpx;background:#f5f5f5;border-radius:10rpx;padding:0 12rpx;font-size:24rpx;box-sizing:border-box}
+.sudi-sku-name{font-size:24rpx;color:#333}
 
 </style>
