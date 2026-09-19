@@ -63,7 +63,8 @@
 				</view>
 			</view>
 			<view class="w-full bg--w111-fff rd-16rpx mt-22 pt-32 pr-30 pl-30">
-				<view class="fs-30 fw-500 lh-42rpx">价格与库存</view>\n\t\t\t\t<view class="fs-22 text--w111-999 mt-12">当前快捷发布为单规格商品；颜色/尺码多规格可在商品管理中继续编辑。</view>
+				<view class="fs-30 fw-500 lh-42rpx">价格与库存</view>
+				<view class="fs-22 text--w111-999 mt-12">当前快捷发布为单规格商品；颜色/尺码多规格可在商品管理中继续编辑。</view>
 				<view class="h-106 flex-between-center bb-e">
 					<text class="fs-30 lh-42rpx">售价</text>
 					<view class="flex-1 flex justify-end text-right">
@@ -386,7 +387,8 @@ export default {
 			if(this.setFormData.attr.cost === '' || Number(this.setFormData.attr.cost) < 0) return this.$util.Tips({title: '请填写正确的商品成本价'});
 			if(this.setFormData.attr.ot_price === '' || Number(this.setFormData.attr.ot_price) < 0) return this.$util.Tips({title: '请填写正确的商品划线价'});
 			if(this.setFormData.attr.stock === '' || Number(this.setFormData.attr.stock) < 0) return this.$util.Tips({title: '请填写正确的商品库存'});
-			if(!this.setFormData.logistics.length) return this.$util.Tips({title: '请选择配送方式'});\n\t\t\tif(this.setFormData.slider_image.length > 9 || this.contentPicture.length > 10) return this.$util.Tips({title: '商品图片数量超出限制'});
+			if(!this.setFormData.logistics.length) return this.$util.Tips({title: '请选择配送方式'});
+			if(this.setFormData.slider_image.length > 9 || this.contentPicture.length > 10) return this.$util.Tips({title: '商品图片数量超出限制'});
 			if(this.setFormData.freight == 3 && this.setFormData.temp_id == 0) return this.$util.Tips({title: '请选择运费模版'});
 			const html = this.buildEditorImageHtml(this.contentPicture);
 			this.$set(this.setFormData,'content',html);
