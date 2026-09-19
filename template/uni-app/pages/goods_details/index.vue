@@ -222,6 +222,14 @@
           @click="H5ShareBox = false"
         ></image>
       </view>
+      <view class="sudi-ai-tools" v-if="storeInfo && storeInfo.id">
+        <view class="sudi-ai-tools-title">苏迪 AI 购前助手</view>
+        <view class="sudi-ai-tools-actions">
+          <button class="sudi-ai-tool" @click="openAiSize">AI 尺码</button>
+          <button class="sudi-ai-tool" @click="openAiOutfit">AI 搭配</button>
+          <button class="sudi-ai-tool" @click="openAiCustomer">问 AI 客服</button>
+        </view>
+      </view>
       <kefuIcon
         :ids="parseInt(id)"
         :routineContact="routineContact"
@@ -553,6 +561,24 @@ export default {
     uni.$emit("scroll");
   },
   methods: {
+    openAiSize() {
+      if (!this.isLogin) {
+        toLogin();
+        return;
+      }
+      uni.navigateTo({ url: "/pages/sudi_ai/size?product_id=" + this.id });
+    },
+    openAiOutfit() {
+      const name = encodeURIComponent(this.storeInfo.store_name || "");
+      uni.navigateTo({ url: "/pages/sudi_ai/outfit?product_id=" + this.id + "&name=" + name });
+    },
+    openAiCustomer() {
+      if (!this.isLogin) {
+        toLogin();
+        return;
+      }
+      uni.navigateTo({ url: "/pages/sudi_ai/customer?product_id=" + this.id });
+    },
     // 操作菜单
     moreNav() {
       this.currentPage = !this.currentPage;
@@ -1921,4 +1947,11 @@ action-sheet-item {
 .delete-line {
   text-decoration: line-through;
 }
+</style>
+
+<style scoped>
+.sudi-ai-tools{margin:20rpx;padding:24rpx;background:#fff;border-radius:18rpx}
+.sudi-ai-tools-title{font-size:28rpx;font-weight:700;color:#222;margin-bottom:18rpx}
+.sudi-ai-tools-actions{display:flex;gap:14rpx}
+.sudi-ai-tool{flex:1;margin:0;padding:0;height:70rpx;line-height:70rpx;border-radius:999rpx;background:#fff0f4;color:#ff3366;font-size:24rpx}
 </style>
