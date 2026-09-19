@@ -56,7 +56,7 @@ class PayNotifyServices
      * @param string|null $order_id 订单id
      * @return bool
      */
-    public function wechatUserRecharge(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY)
+    public function wechatUserRecharge(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY, $paidAmount = null)
     {
         try {
             /** @var UserRechargeServices $userRecharge */
@@ -73,7 +73,7 @@ class PayNotifyServices
      * @param string|null $order_id
      * @return bool
      */
-    public function wechatMember(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY)
+    public function wechatMember(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY, $paidAmount = null)
     {
         try {
             /** @var OtherOrderServices $services */
