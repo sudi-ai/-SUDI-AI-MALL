@@ -49,3 +49,23 @@ jobs:
           PY
       - name: Payment callback contract
         run: php tests/sudi/payment_callback_contract_test.php
+
+  composer-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crmeb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: json,curl,bcmath,mbstring,zip,simplexml
+          coverage: none
+      - name: Validate Composer manifest
+        run: composer validate --no-check-publish
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: ThinkPHP CLI smoke test
+        run: php think list >/tmp/sudi-think-list.txt
