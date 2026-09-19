@@ -47,3 +47,5 @@ jobs:
               raise SystemExit('escaped newline/tab artifacts: '+', '.join(bad))
           print('source sanity OK')
           PY
+      - name: Payment callback contract
+        run: php tests/sudi/payment_callback_contract_test.php
