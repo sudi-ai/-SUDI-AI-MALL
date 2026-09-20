@@ -141,8 +141,7 @@ jobs:
           echo "CRMEB tables: $TABLES"
       - name: Verify Redis
         run: |
-          redis-cli -h 127.0.0.1 SET sudi-ci:ping ok
-          test "$(redis-cli -h 127.0.0.1 GET sudi-ci:ping)" = "ok"
+          php -r '$r=new Redis(); if(!$r->connect("127.0.0.1",6379,2)){exit(1);} $r->set("sudi-ci:ping","ok"); if($r->get("sudi-ci:ping")!=="ok"){exit(2);} echo "Redis OK\n";'
       - name: Boot CRMEB HTTP API
         run: |
           php -S 127.0.0.1:8000 -t public public/index.php >/tmp/sudi-http.log 2>&1 &
