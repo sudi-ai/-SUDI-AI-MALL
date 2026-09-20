@@ -157,6 +157,22 @@ jobs:
           curl -fsS http://127.0.0.1:8000/api/sudi/ai/capabilities >/tmp/sudi-ai.json
           cat /tmp/sudi-ai.json
           grep -q "capabilities" /tmp/sudi-ai.json
+      - name: Verify commerce schema for SKU cart order flow
+        run: |
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW TABLES LIKE 'eb_store_product'; SHOW TABLES LIKE 'eb_store_product_attr'; SHOW TABLES LIKE 'eb_store_product_attr_value'; SHOW TABLES LIKE 'eb_store_cart'; SHOW TABLES LIKE 'eb_store_order'; SHOW TABLES LIKE 'eb_store_order_cart_info';" >/tmp/sudi-commerce-tables.txt
+          cat /tmp/sudi-commerce-tables.txt
+          test "$(wc -l </tmp/sudi-commerce-tables.txt)" -eq 6
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_product_attr_value" | grep -q "unique"
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_cart" | grep -q "product_attr_unique"
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_order" | grep -q "pay_price"
+      - name: Verify transaction safety contracts
+        run: |
+          grep -q "newCartNum" app/services/order/StoreCartServices.php
+          grep -q "nowStock" app/services/order/StoreCartServices.php
+          grep -q "getProductStock" app/services/order/StoreOrderCreateServices.php
+          grep -q "transaction" app/services/order/StoreOrderCreateServices.php
+          grep -q "bccomp" app/services/pay/PayNotifyServices.php
+          echo "commerce safety contracts OK"
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/sudi-http.log || true
