@@ -578,6 +578,9 @@ class StoreOrderController
         $orderInfo = $this->services->get($cartInfo['oid']);
         if (!$orderInfo) return app('json')->fail('订单不存在');
         if ($uid != $orderInfo['uid'] && $uid != $orderInfo['gift_uid']) return app('json')->fail('不是您自己的订单，无法评价');
+        // 只允许已支付且已确认收货/交易完成的真实订单评价，避免未付款或运输中的订单提前刷评。
+        if (!(int)$orderInfo['paid']) return app('json')->fail('订单未支付，无法评价');
+        if (!(int)$orderInfo['status']) return app('json')->fail('请确认收货后再评价');
         if ($replyServices->be(['oid' => $cartInfo['oid'], 'unique' => $unique]))
             return app('json')->fail('订单商品已评价');
         $group['comment'] = htmlspecialchars(trim($group['comment']));
