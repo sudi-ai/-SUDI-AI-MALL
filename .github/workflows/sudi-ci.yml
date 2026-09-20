@@ -188,16 +188,16 @@ jobs:
           PID=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id FROM eb_store_product WHERE store_name='SUDI CI 六SKU测试款' ORDER BY id DESC LIMIT 1")
           test -n "$PID"
           for I in 0 1 2 3 4 5; do
-            mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product_attr_value (product_id,suk,stock,sales,price,image,\`unique\`,cost,ot_price) VALUES ($PID,CONCAT('CI-SKU-',$I),10,0,$((199+I)),'/test.jpg',CONCAT('sudi-ci-',$PID,'-',$I),80,259);"
+            mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product_attr_value (product_id,suk,stock,sales,price,image,\`unique\`,cost,ot_price) VALUES ($PID,CONCAT('CI-SKU-',$I),10,0,$((199+I)),'/test.jpg',CONCAT('sudici',$PID,LPAD($I,2,'0')),80,259);"
           done
           echo "SUDI inserted SKU rows:"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id,product_id,suk,stock,price,\`unique\` FROM eb_store_product_attr_value ORDER BY id DESC LIMIT 12;"
-          SKU_COUNT=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COUNT(*) FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` LIKE CONCAT('sudi-ci-',$PID,'-%')")
-          SKU_STOCK=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COALESCE(SUM(stock),0) FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` LIKE CONCAT('sudi-ci-',$PID,'-%')")
+          SKU_COUNT=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COUNT(*) FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` LIKE CONCAT('sudici',$PID,'%')")
+          SKU_STOCK=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COALESCE(SUM(stock),0) FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` LIKE CONCAT('sudici',$PID,'%')")
           echo "SUDI SKU fixture: pid=$PID count=$SKU_COUNT stock=$SKU_STOCK"
           test "$SKU_COUNT" = "6"
           test "$SKU_STOCK" = "60"
-          UNIQUE="sudi-ci-$PID-0"
+          UNIQUE="sudici$PID00"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE eb_store_product_attr_value SET stock=stock-1 WHERE product_id=$PID AND \`unique\`='$UNIQUE' AND stock>=1;"
           AFTER_ONE=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\`='$UNIQUE'")
           echo "SUDI stock after decrement: $AFTER_ONE"
@@ -206,7 +206,7 @@ jobs:
           AFTER_OVERSELL=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\`='$UNIQUE'")
           echo "SUDI stock after oversell attempt: $AFTER_OVERSELL"
           test "$AFTER_OVERSELL" = "9"
-          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` LIKE CONCAT('sudi-ci-',$PID,'-%'); DELETE FROM eb_store_product WHERE id=$PID;"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` LIKE CONCAT('sudici',$PID,'%'); DELETE FROM eb_store_product WHERE id=$PID;"
           echo "six SKU + atomic stock lifecycle OK"
       - name: Dump server log on failure
         if: failure()
