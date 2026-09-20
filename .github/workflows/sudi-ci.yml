@@ -182,6 +182,23 @@ jobs:
           test -n "$PID"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product WHERE id=$PID"
           echo "commerce DB write/cleanup OK: product $PID"
+      - name: Exercise six-SKU inventory lifecycle
+        run: |
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product (image,slider_image,store_name,store_info,keyword,cate_id,price,ot_price,postage,unit_name,sort,sales,stock,is_show,is_new,add_time,is_postage,is_del,cost,spec_type) VALUES ('/test.jpg','[\"/test.jpg\"]','SUDI CI 六SKU测试款','CI only','SUDI-CI',1,199,259,0,'件',0,0,60,1,1,UNIX_TIMESTAMP(),1,0,80,1);"
+          PID=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id FROM eb_store_product WHERE store_name='SUDI CI 六SKU测试款' ORDER BY id DESC LIMIT 1")
+          test -n "$PID"
+          for I in 0 1 2 3 4 5; do
+            mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product_attr_value (product_id,suk,stock,sales,price,image,\`unique\`,cost,ot_price) VALUES ($PID,CONCAT('CI-SKU-',$I),10,0,$((199+I)),'/test.jpg',CONCAT('sudi-ci-',$PID,'-',$I),80,259);"
+          done
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COUNT(*) FROM eb_store_product_attr_value WHERE product_id=$PID")" = "6"
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT SUM(stock) FROM eb_store_product_attr_value WHERE product_id=$PID")" = "60"
+          UNIQUE="sudi-ci-$PID-0"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE eb_store_product_attr_value SET stock=stock-1 WHERE product_id=$PID AND \`unique\`='$UNIQUE' AND stock>=1;"
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\`='$UNIQUE'")" = "9"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE eb_store_product_attr_value SET stock=stock-99 WHERE product_id=$PID AND \`unique\`='$UNIQUE' AND stock>=99;"
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\`='$UNIQUE'")" = "9"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product_attr_value WHERE product_id=$PID; DELETE FROM eb_store_product WHERE id=$PID;"
+          echo "six SKU + atomic stock lifecycle OK"
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/sudi-http.log || true
