@@ -134,6 +134,7 @@ jobs:
           EOF
       - name: Import CRMEB database
         run: |
+          mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL sql_mode='NO_ENGINE_SUBSTITUTION';"
           mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 crmeb31 < public/install/crmeb.sql
           TABLES=$(mysql -N -h127.0.0.1 -uroot -proot -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='crmeb31'")
           test "$TABLES" -gt 50
