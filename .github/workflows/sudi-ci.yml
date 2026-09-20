@@ -173,17 +173,11 @@ jobs:
           grep -q "transaction" app/services/order/StoreOrderCreateServices.php
           grep -q "bccomp" app/services/pay/PayNotifyServices.php
           echo "commerce safety contracts OK"
-      - name: Exercise SKU cart order database lifecycle
+      - name: Exercise commerce database write lifecycle
         run: |
-          cat > /tmp/sudi-commerce.sql <<'SQL'
-          SET @now = UNIX_TIMESTAMP();
-          INSERT INTO eb_store_product (mer_id,image,slider_image,store_name,store_info,keyword,bar_code,cate_id,price,vip_price,ot_price,postage,unit_name,sort,sales,stock,is_show,is_hot,is_benefit,is_best,is_new,add_time,is_postage,is_del,mer_use,give_integral,cost,is_seckill,is_bargain,is_good,fiction_base,browse,code_path,soure_link,temp_id,spec_type) 
-          SELECT 0,'/test.jpg','["/test.jpg"]','SUDI CI 女装测试款','CI only','SUDI-CI','',1,199,0,259,0,'件',0,0,60,1,0,0,0,1,@now,1,0,0,0,80,0,0,1,0,0,'','',1,1
-          WHERE EXISTS (SELECT 1 FROM eb_store_product LIMIT 1);
-          SET @pid = LAST_INSERT_ID();
-          SELECT @pid AS product_id;
-          SQL
-          mysql -h127.0.0.1 -uroot -proot crmeb31 < /tmp/sudi-commerce.sql
+          COLS=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_product" | cut -f1 | tr '\n' ' ')
+          echo "eb_store_product columns: $COLS"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product (image,slider_image,store_name,store_info,keyword,cate_id,price,ot_price,postage,unit_name,sort,sales,stock,is_show,is_new,add_time,is_postage,is_del,cost,spec_type) VALUES ('/test.jpg','[\"/test.jpg\"]','SUDI CI 女装测试款','CI only','SUDI-CI',1,199,259,0,'件',0,0,60,1,1,UNIX_TIMESTAMP(),1,0,80,1);"
           PID=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id FROM eb_store_product WHERE store_name='SUDI CI 女装测试款' ORDER BY id DESC LIMIT 1")
           test -n "$PID"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product WHERE id=$PID"
