@@ -213,11 +213,30 @@ jobs:
           set -e
           echo "[1/8] concurrent stock: two buyers compete for last unit"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE IF EXISTS sudi_ci_stock; CREATE TABLE sudi_ci_stock(id INT PRIMARY KEY, stock INT NOT NULL) ENGINE=InnoDB; INSERT INTO sudi_ci_stock VALUES(1,1);"
-          (mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=stock-1 WHERE id=1 AND stock>=1;" &)
-          (mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=stock-1 WHERE id=1 AND stock>=1;" &)
-          wait
-          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")" = "0"
-
+          cat > /tmp/sudi-race.sh <<'SH'
+          #!/usr/bin/env bash
+          set +e
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=stock-1 WHERE id=1 AND stock>=1; SELECT ROW_COUNT();" >"$1" 2>"$1.err"
+          echo $? >"$1.code"
+          SH
+          chmod +x /tmp/sudi-race.sh
+          /tmp/sudi-race.sh /tmp/race-a.out & PA=$!
+          /tmp/sudi-race.sh /tmp/race-b.out & PB=$!
+          set +e
+          wait "$PA"; WA=$?
+          wait "$PB"; WB=$?
+          set -e
+          A=$(tail -n1 /tmp/race-a.out 2>/dev/null || echo ERR)
+          B=$(tail -n1 /tmp/race-b.out 2>/dev/null || echo ERR)
+          FINAL=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")
+          echo "race result: A=$A B=$B waitA=$WA waitB=$WB final=$FINAL"
+          cat /tmp/race-a.out.err /tmp/race-b.out.err || true
+          test "$WA" = "0"
+          test "$WB" = "0"
+          test "$A" != "ERR"
+          test "$B" != "ERR"
+          test $((A+B)) -eq 1
+          test "$FINAL" = "0"
           echo "[2/8] transaction rollback"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=1 WHERE id=1; START TRANSACTION; UPDATE sudi_ci_stock SET stock=0 WHERE id=1; ROLLBACK;"
           test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")" = "1"
