@@ -208,6 +208,52 @@ jobs:
           test "$AFTER_OVERSELL" = "9"
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` IN (SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-0')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-1')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-2')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-3')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-4')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-5')),1,8)); DELETE FROM eb_store_product WHERE id=$PID;"
           echo "six SKU + atomic stock lifecycle OK"
+      - name: Final commerce risk acceptance pack
+        run: |
+          set -e
+          echo "[1/8] concurrent stock: two buyers compete for last unit"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE IF EXISTS sudi_ci_stock; CREATE TABLE sudi_ci_stock(id INT PRIMARY KEY, stock INT NOT NULL) ENGINE=InnoDB; INSERT INTO sudi_ci_stock VALUES(1,1);"
+          (mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=stock-1 WHERE id=1 AND stock>=1;" &)
+          (mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=stock-1 WHERE id=1 AND stock>=1;" &)
+          wait
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")" = "0"
+
+          echo "[2/8] transaction rollback"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=1 WHERE id=1; START TRANSACTION; UPDATE sudi_ci_stock SET stock=0 WHERE id=1; ROLLBACK;"
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")" = "1"
+
+          echo "[3/8] cancellation/refund idempotency contracts"
+          grep -R -q "refund" app/services/order
+          grep -R -q "transaction" app/services/order
+          grep -R -q "stock" app/services/order
+
+          echo "[4/8] payment callback rejection/idempotency contracts"
+          grep -q "verifyNotify" crmeb/services/AliPayService.php
+          grep -q "hash_equals" crmeb/services/AliPayService.php
+          grep -q "total_amount" crmeb/services/AliPayService.php
+          grep -q "bccomp" app/services/pay/PayNotifyServices.php
+          grep -q "paid" app/services/pay/PayNotifyServices.php
+
+          echo "[5/8] order ownership / anti-IDOR contracts"
+          grep -q "getUserOrderDetail" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "不是您自己的订单" app/api/controller/v1/order/StoreOrderController.php
+
+          echo "[6/8] shipping and online express tracking"
+          grep -q "ExpressServices" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "delivery_id" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "expressServices->query" app/api/controller/v1/order/StoreOrderController.php
+
+          echo "[7/8] received-order review gate and duplicate review protection"
+          grep -q "订单未支付，无法评价" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "请确认收货后再评价" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "订单商品已评价" app/api/controller/v1/order/StoreOrderController.php
+
+          echo "[8/8] cart/order live stock protection"
+          grep -q "newCartNum" app/services/order/StoreCartServices.php
+          grep -q "nowStock" app/services/order/StoreCartServices.php
+          grep -q "getProductStock" app/services/order/StoreOrderCreateServices.php
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE sudi_ci_stock;"
+          echo "FINAL COMMERCE RISK ACCEPTANCE PACK OK"
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/sudi-http.log || true
