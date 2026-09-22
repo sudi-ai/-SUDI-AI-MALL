@@ -6,11 +6,11 @@
 				<view class="fs-30 fw-500 lh-42rpx">商品信息</view>
 				<view class="mt-30 flex-between-center">
 					<text class="fs-30 lh-42rpx">商品名称</text>
-					<text class="text-24 text--w111-666">{{setFormData.store_name.length}}/40</text>
+					<text class="text-24 text--w111-666">{{setFormData.store_name.length}}/60</text>
 				</view>
 				<view class="w-full bg--w111-f5f5f5 rd-12rpx p-20 mt-12">
 					<textarea v-model="setFormData.store_name"
-					:maxlength="40"
+					:maxlength="60"
 					placeholder="请填写商品名称" placeholder-class="text--w111-ccc"
 					class="fs-30" auto-height />
 				</view>
@@ -191,8 +191,9 @@
 				<view class="h-200"></view>
 			</view>
 			<view class="fixed-lb w-full pb-safe bg--w111-fff z-10">
-			    <view class="footer-box flex-center">
-			        <view class="w-690 h-88 flex-center bg-mer text--w111-fff fs-28 rd-44rpx" @tap="confirmSave">提交</view>
+			    <view class="footer-box sudi-footer-actions">
+			        <view class="sudi-draft-btn h-88 flex-center fs-28 rd-44rpx" @tap="confirmSave(0)">保存草稿</view>
+			        <view class="sudi-publish-btn h-88 flex-center bg-mer text--w111-fff fs-28 rd-44rpx" @tap="confirmSave(1)">提交并上架</view>
 			    </view>
 			</view>
 		</view>
@@ -224,7 +225,7 @@ export default {
 				image: '', //主图
 				attr: {
 					price: "",
-					cost: "",
+					cost: "0",
 					ot_price: "",
 					stock: "",
 					bar_code: "",
@@ -238,9 +239,9 @@ export default {
 				slider_image: [],
 				store_name: '',
 				cate_id: '',
-				unit_name: '',
+				unit_name: '件',
 				spec_type: 0,
-				logistics: ['1','2'],
+				logistics: ['1'],
 				freight: 2,
 				temp_id: 0,
 				content: "",
@@ -377,18 +378,28 @@ export default {
 			this.tempIndex = e.detail.value;
 			this.setFormData.temp_id = this.templateList[this.tempIndex].id;
 		},
-		confirmSave(){
+		confirmSave(isShow = 1){
 			const colors=this.parseSpecText(this.colorText), sizes=this.parseSpecText(this.sizeText);
 			if((colors.length && !sizes.length) || (!colors.length && sizes.length)) return this.$util.Tips({title: '颜色和尺码请同时填写'});
 			if(colors.length * sizes.length > 100) return this.$util.Tips({title: '颜色尺码组合不能超过100个'});
 			if(!this.applyMultiSku()) return this.$util.Tips({title: '请填写每个颜色尺码的售价和库存'});
+			if(this.skuPreview.length){
+				const prices=this.skuPreview.map(v=>Number(v.price));
+				const stocks=this.skuPreview.map(v=>Number(v.stock));
+				this.setFormData.attr.price=Math.min(...prices);
+				this.setFormData.attr.stock=stocks.reduce((a,b)=>a+b,0);
+				if(this.setFormData.attr.ot_price === '') this.setFormData.attr.ot_price=Math.max(...prices);
+			} else if(this.setFormData.attr.ot_price === '') {
+				this.setFormData.attr.ot_price=this.setFormData.attr.price;
+			}
+			this.setFormData.is_show = isShow ? 1 : 0;
 			if(!this.setFormData.store_name) return this.$util.Tips({title: '请输入商品名称'});
 			if(!this.setFormData.image) return this.$util.Tips({title: '请上传商品图片'});
 			if(!this.setFormData.cate_id) return this.$util.Tips({title: '请选择商品分类'});
 			if(!this.setFormData.unit_name) return this.$util.Tips({title: '请填写商品单位'});
 			if(this.setFormData.attr.price === '' || Number(this.setFormData.attr.price) <= 0) return this.$util.Tips({title: '请填写正确的商品售价'});
-			if(this.setFormData.attr.cost === '' || Number(this.setFormData.attr.cost) < 0) return this.$util.Tips({title: '请填写正确的商品成本价'});
-			if(this.setFormData.attr.ot_price === '' || Number(this.setFormData.attr.ot_price) < 0) return this.$util.Tips({title: '请填写正确的商品划线价'});
+			if(Number(this.setFormData.attr.cost || 0) < 0) return this.$util.Tips({title: '请填写正确的商品成本价'});
+			if(Number(this.setFormData.attr.ot_price || this.setFormData.attr.price) < 0) return this.$util.Tips({title: '请填写正确的商品划线价'});
 			if(this.setFormData.attr.stock === '' || Number(this.setFormData.attr.stock) < 0) return this.$util.Tips({title: '请填写正确的商品库存'});
 			if(!this.setFormData.logistics.length) return this.$util.Tips({title: '请选择配送方式'});
 			if(this.setFormData.slider_image.length > 9 || this.contentPicture.length > 10) return this.$util.Tips({title: '商品图片数量超出限制'});
@@ -397,7 +408,7 @@ export default {
 			this.$set(this.setFormData,'content',html);
 			productCreate(this.setFormData).then(res=>{
 				uni.showToast({
-					title: "提交成功",
+					title: isShow ? "上架成功" : "草稿已保存",
 					icon: 'none'
 				})
 				uni.redirectTo({
@@ -455,12 +466,10 @@ export default {
 .px-30{
 	padding: 0 30rpx;
 }
-.footer-box {
-    height: 126rpx;
-    .w-690 {
-        width: 690rpx;
-    }
-}
+.footer-box { height: 126rpx; }
+.sudi-footer-actions{display:grid;grid-template-columns:0.85fr 1.4fr;gap:20rpx;padding:18rpx 30rpx;box-sizing:border-box}
+.sudi-draft-btn{border:2rpx solid $primary-admin;color:$primary-admin;background:#fff}
+.sudi-publish-btn{min-width:0}
 .ml-48{
 	margin-left: 48rpx;
 }
