@@ -312,7 +312,7 @@ class StoreManageServices extends BaseServices
             'coupon_ids' => [],
             'label_id' => [],
             'command_word' => '',
-            'is_show' => 0,
+            'is_show' => !empty($data['is_show']) ? 1 : 0,
             'ficti' => 0,
             'sort' => 0,
             'recommend_image' => '',
