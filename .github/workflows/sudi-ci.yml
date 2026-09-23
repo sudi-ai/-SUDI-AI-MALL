@@ -283,6 +283,7 @@ jobs:
         run: |
           set -o pipefail
           php ../tests/sudi/commerce_service_integration.php 2>&1 | tee /tmp/sudi-service-integration.log
+          grep -q '^SERVICE INTEGRATION PACK PASSED' /tmp/sudi-service-integration.log
       - name: Upload regression logs
         if: always()
         uses: actions/upload-artifact@v4

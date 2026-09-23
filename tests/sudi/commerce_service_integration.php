@@ -32,6 +32,16 @@ function check($condition, $message) {
 function cart($pid, $unique, $num = 1) {
     return [['cart_num' => $num, 'productInfo' => ['id' => $pid, 'attrInfo' => ['unique' => $unique]]]];
 }
+function publicApi($path, array $query = []) {
+    $handle = curl_init('http://127.0.0.1:8000/api/' . $path . '?' . http_build_query($query));
+    curl_setopt_array($handle, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+    $body = curl_exec($handle);
+    $status = curl_getinfo($handle, CURLINFO_HTTP_CODE);
+    curl_close($handle);
+    $result = json_decode($body, true);
+    if ($status !== 200 || !is_array($result)) throw new RuntimeException("API failed: $path $status $body");
+    return $result;
+}
 function reserve($pid, $unique, $num = 1) {
     return Db::transaction(function () use ($pid, $unique, $num) {
         app()->make(StoreOrderCreateServices::class)->decGoodsStock(cart($pid, $unique, $num), 0, 0, 0, 0);
@@ -90,25 +100,33 @@ function race($kind, $id, $unique = '') {
 $pid = $uid = $oid = 0;
 $orderNumber = 'SUDI-CI-' . bin2hex(random_bytes(8));
 try {
-    $pid = Db::name('store_product')->insertGetId([
-        'image' => '/test.jpg', 'slider_image' => '["/test.jpg"]',
-        'store_name' => $orderNumber, 'store_info' => 'Disposable CI fixture',
-        'keyword' => 'SUDI-CI', 'cate_id' => '1', 'price' => 199, 'ot_price' => 259,
-        'postage' => 0, 'unit_name' => '件', 'sort' => 0, 'sales' => 0, 'stock' => 6,
-        'is_show' => 0, 'is_new' => 1, 'add_time' => time(), 'is_postage' => 1,
-        'is_del' => 0, 'cost' => 80, 'spec_type' => 1,
-    ]);
-    $skus = [];
+    $attrs = [];
     foreach (['黑', '灰'] as $color) foreach (['S', 'M', 'L'] as $size) {
-        $unique = substr(md5($orderNumber . $color . $size), 0, 8);
-        $skus[] = $unique;
-        Db::name('store_product_attr_value')->insert([
-            'product_id' => $pid, 'suk' => "$color,$size", 'unique' => $unique,
-            'stock' => 1, 'sales' => 0, 'price' => 199 + count($skus),
-            'cost' => 80, 'ot_price' => 259, 'image' => '/test.jpg', 'type' => 0,
-        ]);
+        $attrs[] = ['detail' => ['颜色' => $color, '尺码' => $size], 'attr_arr' => [$color, $size],
+            'stock' => 1, 'price' => 199 + count($attrs), 'cost' => 80, 'ot_price' => 259,
+            'pic' => '/test.jpg', 'bar_code' => '', 'bar_code_number' => '', 'weight' => 0,
+            'volume' => 0, 'brokerage' => 0, 'brokerage_two' => 0, 'vip_price' => 0,
+            'is_show' => 1, 'is_default_select' => count($attrs) === 0 ? 1 : 0,
+            'virtual_list' => [], 'coupon_id' => 0];
     }
-    check(Db::name('store_product_attr_value')->where('product_id', $pid)->count() === 6, 'six distinct color/size SKUs');
+    $merchant = app()->make(app\services\admin\StoreManageServices::class);
+    $merchant->createProduct(['store_name' => $orderNumber, 'slider_image' => ['/test.jpg', '/test2.jpg'],
+        'cate_id' => [1], 'unit_name' => '件', 'attr' => [], 'content' => '<p>CI dress</p>',
+        'logistics' => ['1'], 'freight' => 2, 'postage' => 0, 'temp_id' => 0,
+        'spec_type' => 1, 'items' => [['value' => '颜色', 'detail' => ['黑', '灰']],
+            ['value' => '尺码', 'detail' => ['S', 'M', 'L']]], 'attrs' => $attrs, 'is_show' => 0]);
+    $pid = (int)Db::name('store_product')->where('store_name', $orderNumber)->value('id');
+    check($pid > 0, 'merchant service creates draft');
+    check((int)Db::name('store_product')->where('id', $pid)->value('is_new') === 0, 'ordinary product has no promotion flag');
+    $draft = publicApi('products', ['ids' => $pid]);
+    check(($draft['status'] ?? 0) === 200 && count($draft['data']) === 0, 'buyer API hides draft');
+    $merchant->productShow($pid, 1);
+    $published = publicApi('products', ['news' => 0, 'timeOrder' => 1, 'page' => 1, 'limit' => 10]);
+    check(($published['status'] ?? 0) === 200 && in_array($pid, array_column($published['data'], 'id')), 'ordinary published product appears in homepage feed');
+    $category = publicApi('products', ['sid' => 1, 'ids' => $pid]);
+    check(($category['status'] ?? 0) === 200 && in_array($pid, array_column($category['data'], 'id')), 'category API finds published product');
+    $skus = Db::name('store_product_attr_value')->where('product_id', $pid)->order('id')->column('unique');
+    check((int)Db::name('store_product_attr_value')->where('product_id', $pid)->count() === 6, 'six distinct color/size SKUs');
     $results = race('stock', $pid, $skus[0]);
     check(array_sum($results) === 1, 'real order stock service: only one last-unit buyer succeeds');
     check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 0, 'SKU never negative');
@@ -143,11 +161,11 @@ try {
     $results = race('pay', $orderNumber);
     check(array_sum($results) === 2, 'valid concurrent duplicate callbacks both acknowledged');
     check((int)Db::name('store_order')->where('id', $oid)->value('paid') === 1, 'actual order paid');
-    check(Db::name('store_order_status')->where('oid', $oid)->where('change_type', 'pay_success')->count() === 1, 'one payment success event');
-    check(Db::name('capital_flow')->where('order_id', $orderNumber)->count() === 1, 'one actual capital ledger entry');
+    check((int)Db::name('store_order_status')->where('oid', $oid)->where('change_type', 'pay_success')->count() === 1, 'one payment success event');
+    check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->count() === 1, 'one actual capital ledger entry');
     check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, '1.00'), 'wrong amount rejected even after paid');
     check($notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, '199.00'), 'sequential callback is idempotent');
-    check(Db::name('capital_flow')->where('order_id', $orderNumber)->count() === 1, 'sequential retry does not duplicate ledger');
+    check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->count() === 1, 'sequential retry does not duplicate ledger');
     echo "SERVICE INTEGRATION PACK PASSED (not full browser/end-to-end acceptance)\n";
 } finally {
     if ($oid) {
@@ -157,6 +175,9 @@ try {
     }
     if ($uid) Db::name('user')->where('uid', $uid)->delete();
     if ($pid) {
+        foreach (['store_product_attr', 'store_product_attr_result', 'store_product_cate', 'store_product_description'] as $table) {
+            Db::name($table)->where('product_id', $pid)->delete();
+        }
         Db::name('store_product_attr_value')->where('product_id', $pid)->delete();
         Db::name('store_product')->where('id', $pid)->delete();
     }

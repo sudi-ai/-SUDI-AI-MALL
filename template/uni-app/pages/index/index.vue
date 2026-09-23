@@ -409,7 +409,8 @@ export default {
         keyword: "",
         priceOrder: "",
         salesOrder: "",
-        news: 1,
+        news: 0,
+        timeOrder: 1,
         page: this.goodPage,
         limit: 10,
       }).then((res) => {
