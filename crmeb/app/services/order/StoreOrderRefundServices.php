@@ -329,13 +329,16 @@ class StoreOrderRefundServices extends BaseServices
      */
     public function agreeExpress($id)
     {
-        $order = $this->dao->get($id, ['refund_type']);
-        if (!$order) throw new AdminException('数据不存在');
-        if ($order['refund_type'] == 4) {
+        return $this->transaction(function () use ($id) {
+            $order = Db::name('store_order_refund')->where('id', $id)->lock(true)->find();
+            if (!$order) throw new AdminException('数据不存在');
+            if ($order['is_cancel'] || $order['is_del'] || !in_array((int)$order['refund_type'], [2, 4], true)) {
+                throw new AdminException('售后订单状态不支持该操作');
+            }
+            if ((int)$order['refund_type'] === 4) return true;
+            $this->dao->update($id, ['refund_type' => 4], 'id');
             return true;
-        }
-        $this->dao->update($id, ['refund_type' => 4], 'id');
-        return true;
+        });
     }
 
     /**
@@ -930,6 +933,10 @@ class StoreOrderRefundServices extends BaseServices
     {
         $this->transaction(function () use ($data) {
             $id = $data['id'];
+            $refund = Db::name('store_order_refund')->where('id', $id)->lock(true)->find();
+            if (!$refund || $refund['is_cancel'] || $refund['is_del'] || (int)$refund['refund_type'] !== 4) {
+                throw new ApiException('当前状态不能提交退货物流');
+            }
             $data['refund_type'] = 5;
             /** @var StoreOrderStatusServices $statusService */
             $statusService = app()->make(StoreOrderStatusServices::class);
@@ -976,6 +983,8 @@ class StoreOrderRefundServices extends BaseServices
         if (!$order) {
             throw new ApiException('订单不存在');
         }
+        if (!(int)$order['paid']) throw new ApiException('订单未支付，无法退款');
+        if ((int)$order['refund_status'] === 2 || (int)$order['status'] < 0) throw new ApiException('订单状态不支持退款');
 
         $is_now = $this->dao->getCount([
             ['store_order_id', '=', $id],

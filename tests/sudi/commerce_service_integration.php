@@ -209,6 +209,8 @@ try {
     check(($denied['msg'] ?? '') === '不是您自己的订单，无法评价', 'buyer B cannot review buyer A order');
     $denied = publicApi('order/comment', $review, $tokenA, 'POST');
     check(($denied['msg'] ?? '') === '订单未支付，无法评价', 'unpaid order cannot be reviewed');
+    $denied = publicApi('order/refund/apply/' . $oid, ['text' => 'test', 'refund_type' => 1, 'refund_price' => 199], $tokenA, 'POST');
+    check(($denied['msg'] ?? '') === '订单未支付，无法退款', 'unpaid order cannot request refund');
     $notify = app()->make(PayNotifyServices::class);
     foreach (['198.99', '199.001', '', 'invalid', null] as $amount) {
         check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, $amount), 'invalid payment amount rejected: ' . var_export($amount, true));
@@ -251,9 +253,14 @@ try {
     $denied = publicApi('order/comment', $review, $tokenA, 'POST');
     check(($denied['msg'] ?? '') === '订单商品已评价', 'duplicate review rejected');
     check((int)Db::name('store_product_reply')->where('oid', $oid)->count() === 1, 'one persisted review');
-    $rid = Db::name('store_order_refund')->insertGetId(['order_id' => $orderNumber . 'R', 'store_order_id' => $oid,
-        'uid' => $uid, 'refund_type' => 4, 'refund_price' => 199, 'cart_info' => json_encode([$cartData])]);
-    foreach (['order/refund/detail/' . $orderNumber . 'R', 'order/express/' . $orderNumber . 'R/refund'] as $path) {
+    $accepted = publicApi('order/refund/apply/' . $oid, ['text' => 'CI return', 'refund_type' => 2, 'refund_price' => 199], $tokenA, 'POST');
+    check((int)($accepted['status'] ?? 0) === 200, 'owner requests return refund through actual API');
+    $refund = Db::name('store_order_refund')->where('store_order_id', $oid)->find();
+    check($refund && (int)$refund['refund_type'] === 2, 'return refund application persisted');
+    $rid = (int)$refund['id'];
+    $refundService = app()->make(app\services\order\StoreOrderRefundServices::class);
+    check($refundService->agreeExpress($rid), 'merchant accepts return through actual service');
+    foreach (['order/refund/detail/' . $refund['order_id'], 'order/express/' . $refund['order_id'] . '/refund'] as $path) {
         $denied = publicApi($path, [], $tokenB);
         check(($denied['status'] ?? 200) !== 200 && ($denied['msg'] ?? '') === '订单不存在', 'foreign refund hidden: ' . $path);
     }
@@ -277,6 +284,14 @@ try {
     }
     check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 1, 'duplicate refund does not restore stock twice');
     check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->where('trading_type', 2)->count() === 1, 'one refund ledger entry');
+    try {
+        $refundService->agreeExpress($rid);
+        throw new RuntimeException('Completed refund reopened');
+    } catch (crmeb\exceptions\AdminException $e) {
+        check($e->getMessage() === '售后订单状态不支持该操作', 'completed refund cannot be reopened by return approval');
+    }
+    $denied = publicApi('order/refund/express', $returnData, $tokenA, 'POST');
+    check(($denied['msg'] ?? '') === '当前状态不能提交退货物流', 'completed refund cannot be reopened by return tracking');
     echo "SERVICE INTEGRATION PACK PASSED (not full browser/end-to-end acceptance)\n";
 } finally {
     if ($oid) {
