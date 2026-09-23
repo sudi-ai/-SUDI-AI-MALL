@@ -32,9 +32,11 @@ function check($condition, $message) {
 function cart($pid, $unique, $num = 1) {
     return [['cart_num' => $num, 'productInfo' => ['id' => $pid, 'attrInfo' => ['unique' => $unique]]]];
 }
-function publicApi($path, array $query = []) {
-    $handle = curl_init('http://127.0.0.1:8000/api/' . $path . '?' . http_build_query($query));
+function publicApi($path, array $query = [], $token = '', $method = 'GET') {
+    $handle = curl_init('http://127.0.0.1:8000/api/' . $path . ($method === 'GET' ? '?' . http_build_query($query) : ''));
     curl_setopt_array($handle, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+    if ($token !== '') curl_setopt($handle, CURLOPT_HTTPHEADER, ['Authori-zation: Bearer ' . $token]);
+    if ($method === 'POST') curl_setopt_array($handle, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($query)]);
     $body = curl_exec($handle);
     $status = curl_getinfo($handle, CURLINFO_HTTP_CODE);
     curl_close($handle);
@@ -97,7 +99,7 @@ function race($kind, $id, $unique = '') {
     return $results;
 }
 
-$pid = $uid = $oid = 0;
+$pid = $uid = $oid = $bid = $rid = 0;
 $orderNumber = 'SUDI-CI-' . bin2hex(random_bytes(8));
 try {
     $attrs = [];
@@ -153,6 +155,27 @@ try {
         'total_num' => 1, 'total_price' => 199, 'pay_price' => 199, 'paid' => 0,
         'add_time' => time(), 'status' => 0, 'pay_type' => 'alipay',
     ]);
+    $bid = Db::name('user')->insertGetId(['account' => $orderNumber . 'B', 'pwd' => '', 'nickname' => 'CI buyer B', 'status' => 1, 'add_time' => time(), 'last_time' => time()]);
+    $tokenA = app()->make(crmeb\utils\JwtAuth::class)->createToken($uid, 'api')['token'];
+    $tokenB = app()->make(crmeb\utils\JwtAuth::class)->createToken($bid, 'api')['token'];
+    $denied = publicApi('admin/manage/product/create', [], $tokenB, 'POST');
+    check(($denied['msg'] ?? '') === '权限不足', 'authenticated ordinary buyer cannot publish products');
+    $denied = publicApi('order/detail/' . $orderNumber, [], $tokenB);
+    check(($denied['status'] ?? 200) !== 200 && strpos($denied['msg'] ?? '', '订单不存在') !== false, 'buyer B cannot read buyer A order');
+    $denied = publicApi('order/refund/apply/' . $oid, ['text' => 'test', 'refund_type' => 1, 'refund_price' => 199], $tokenB, 'POST');
+    check(($denied['status'] ?? 200) !== 200 && ($denied['msg'] ?? '') === '订单不存在', 'buyer B cannot refund buyer A order');
+    $cartUnique = md5($orderNumber);
+    $cartData = ['id' => 'ci-cart', 'cart_num' => 1, 'product_id' => $pid, 'truePrice' => 199,
+        'vip_truePrice' => 0, 'postage_price' => 0, 'combination_id' => 0, 'seckill_id' => 0,
+        'bargain_id' => 0, 'productInfo' => ['id' => $pid, 'image' => '/test.jpg',
+            'store_name' => $orderNumber, 'unit_name' => '件', 'attrInfo' => ['suk' => '黑,S', 'unique' => $skus[0]]]];
+    Db::name('store_order_cart_info')->insert(['oid' => $oid, 'uid' => $uid, 'cart_id' => 'ci-cart',
+        'product_id' => $pid, 'cart_num' => 1, 'surplus_num' => 1, 'unique' => $cartUnique, 'cart_info' => json_encode($cartData)]);
+    $review = ['unique' => $cartUnique, 'comment' => 'CI review', 'product_score' => 5, 'service_score' => 5, 'pics' => '/test.jpg'];
+    $denied = publicApi('order/comment', $review, $tokenB, 'POST');
+    check(($denied['msg'] ?? '') === '不是您自己的订单，无法评价', 'buyer B cannot review buyer A order');
+    $denied = publicApi('order/comment', $review, $tokenA, 'POST');
+    check(($denied['msg'] ?? '') === '订单未支付，无法评价', 'unpaid order cannot be reviewed');
     $notify = app()->make(PayNotifyServices::class);
     foreach (['198.99', '199.001', '', 'invalid', null] as $amount) {
         check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, $amount), 'invalid payment amount rejected: ' . var_export($amount, true));
@@ -166,14 +189,41 @@ try {
     check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, '1.00'), 'wrong amount rejected even after paid');
     check($notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, '199.00'), 'sequential callback is idempotent');
     check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->count() === 1, 'sequential retry does not duplicate ledger');
+    foreach ([0, 1, -1, -2] as $state) {
+        Db::name('store_order')->where('id', $oid)->update(['status' => $state]);
+        $denied = publicApi('order/comment', $review, $tokenA, 'POST');
+        check(($denied['msg'] ?? '') === '请确认收货后再评价', 'unreceived or closed order cannot be reviewed: ' . $state);
+    }
+    Db::name('store_order')->where('id', $oid)->update(['status' => 2]);
+    $accepted = publicApi('order/comment', $review, $tokenA, 'POST');
+    check(($accepted['status'] ?? 0) === 200, 'received order accepts rating text and image');
+    $denied = publicApi('order/comment', $review, $tokenA, 'POST');
+    check(($denied['msg'] ?? '') === '订单商品已评价', 'duplicate review rejected');
+    check((int)Db::name('store_product_reply')->where('oid', $oid)->count() === 1, 'one persisted review');
+    $rid = Db::name('store_order_refund')->insertGetId(['order_id' => $orderNumber . 'R', 'store_order_id' => $oid,
+        'uid' => $uid, 'refund_type' => 4, 'refund_price' => 199, 'cart_info' => json_encode([$cartData])]);
+    foreach (['order/refund/detail/' . $orderNumber . 'R', 'order/express/' . $orderNumber . 'R/refund'] as $path) {
+        $denied = publicApi($path, [], $tokenB);
+        check(($denied['status'] ?? 200) !== 200 && ($denied['msg'] ?? '') === '订单不存在', 'foreign refund hidden: ' . $path);
+    }
+    $returnData = ['id' => $rid, 'refund_express' => 'CI123', 'refund_express_name' => 'CI courier'];
+    $denied = publicApi('order/refund/express', $returnData, $tokenB, 'POST');
+    check(($denied['msg'] ?? '') === '订单不存在', 'buyer B cannot modify buyer A return tracking');
+    check((string)Db::name('store_order_refund')->where('id', $rid)->value('refund_express') === '', 'foreign return remains unchanged');
+    $accepted = publicApi('order/refund/express', $returnData, $tokenA, 'POST');
+    check(($accepted['status'] ?? 0) === 200, 'owner can submit return tracking');
     echo "SERVICE INTEGRATION PACK PASSED (not full browser/end-to-end acceptance)\n";
 } finally {
     if ($oid) {
+        Db::name('store_product_reply')->where('oid', $oid)->delete();
+        Db::name('store_order_cart_info')->where('oid', $oid)->delete();
+        Db::name('store_order_refund')->where('store_order_id', $oid)->delete();
         Db::name('capital_flow')->where('order_id', $orderNumber)->delete();
         Db::name('store_order_status')->where('oid', $oid)->delete();
         Db::name('store_order')->where('id', $oid)->delete();
     }
     if ($uid) Db::name('user')->where('uid', $uid)->delete();
+    if ($bid) Db::name('user')->where('uid', $bid)->delete();
     if ($pid) {
         foreach (['store_product_attr', 'store_product_attr_result', 'store_product_cate', 'store_product_description'] as $table) {
             Db::name($table)->where('product_id', $pid)->delete();

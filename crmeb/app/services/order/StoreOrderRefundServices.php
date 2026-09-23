@@ -1190,10 +1190,12 @@ class StoreOrderRefundServices extends BaseServices
      * @email 442384644@qq.com
      * @date 2023/02/17
      */
-    public function refundDetail($uni)
+    public function refundDetail($uni, ?int $uid = null)
     {
         if (!strlen(trim($uni))) throw new ApiException('参数错误');
-        $order = $this->dao->get(['order_id' => $uni], ['*']);
+        $where = ['order_id' => $uni];
+        if ($uid !== null) $where['uid'] = $uid;
+        $order = $this->dao->get($where, ['*']);
         if (!$order) throw new ApiException('订单不存在');
         $order = $order->toArray();
 

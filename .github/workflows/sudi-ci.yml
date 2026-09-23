@@ -25,6 +25,10 @@ jobs:
           php -l crmeb/app/listener/pay/NotifyListener.php
           php -l crmeb/crmeb/services/AliPayService.php
           php -l crmeb/app/dao/BaseDao.php
+          php -l crmeb/app/api/controller/v1/store/StoreProductController.php
+          php -l crmeb/app/api/controller/v1/order/StoreOrderController.php
+          php -l crmeb/app/api/controller/v1/order/StoreOrderRefundController.php
+          php -l crmeb/app/services/order/StoreOrderRefundServices.php
           php -l tests/sudi/commerce_service_integration.php
 
   source-sanity:
@@ -68,7 +72,12 @@ jobs:
       - name: Validate Composer manifest
         run: composer validate --no-check-publish
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
       - name: ThinkPHP CLI smoke test
         run: php think list >/tmp/sudi-think-list.txt
       - name: Actual Alipay RSA2 callback verification
@@ -110,7 +119,12 @@ jobs:
           extensions: json,curl,bcmath,mbstring,zip,simplexml,pdo_mysql,redis
           coverage: none
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
       - name: Configure test environment
         run: |
           cat > .env <<'EOF'
