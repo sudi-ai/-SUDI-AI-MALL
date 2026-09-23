@@ -193,6 +193,9 @@ jobs:
         run: |
           mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL sql_mode='NO_ENGINE_SUBSTITUTION';"
           mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 crmeb31 < public/install/crmeb.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 <<'SQL'
+          UPDATE eb_system_config SET value='"http://127.0.0.1:8000"' WHERE menu_name='site_url';
+          SQL
           TABLES=$(mysql -N -h127.0.0.1 -uroot -proot -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='crmeb31'")
           test "$TABLES" -gt 50
           echo "CRMEB tables: $TABLES"
