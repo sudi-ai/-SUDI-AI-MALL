@@ -6,6 +6,10 @@ if (getenv('SUDI_DISPOSABLE_TEST_DB') !== '1' || getenv('GITHUB_ACTIONS') !== 't
 require __DIR__ . '/../../crmeb/vendor/autoload.php';
 $app = new think\App(__DIR__ . '/../../crmeb/');
 $app->initialize();
+set_exception_handler(function (Throwable $error) {
+    fwrite(STDERR, (string)$error . "\n");
+    exit(1);
+});
 use think\facade\Db;
 use app\services\order\StoreOrderCreateServices;
 use app\services\pay\PayNotifyServices;

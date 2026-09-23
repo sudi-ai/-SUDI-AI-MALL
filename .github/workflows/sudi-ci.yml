@@ -71,6 +71,8 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: ThinkPHP CLI smoke test
         run: php think list >/tmp/sudi-think-list.txt
+      - name: Actual Alipay RSA2 callback verification
+        run: php ../tests/sudi/alipay_signature_test.php
 
   mysql-redis-integration:
     runs-on: ubuntu-latest
