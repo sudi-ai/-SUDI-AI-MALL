@@ -297,6 +297,7 @@ try {
         // These records exist only in the already-validated disposable CI database.
         Db::name('store_product')->where('id', '<>', $pid)->update(['is_show' => 0]);
         Db::name('store_service')->insert(['uid' => $uid, 'status' => 1, 'customer' => 1, 'nickname' => 'CI merchant']);
+        Db::name('user')->where('uid', $bid)->update(['account' => 'sudibuyer', 'pwd' => md5('SudiCiOnly42')]);
         foreach (['test.jpg', 'test2.jpg'] as $index => $file) {
             $img = imagecreatetruecolor(600, 800);
             imagefill($img, 0, 0, imagecolorallocate($img, 180 + $index * 30, 190, 210));

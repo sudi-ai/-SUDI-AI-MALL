@@ -28,6 +28,24 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(page.getByText('苏迪 AI 购前助手')).toBeVisible();
 });
 
+test('buyer signs in through the password login page', async ({browser}) => {
+  const context = await browser.newContext({viewport: {width: 390, height: 844}});
+  const page = await context.newPage();
+  try {
+    await page.goto('http://127.0.0.1:8000/pages/users/login/index');
+    await page.getByText('账号登录', {exact: true}).click();
+    await field(page, '输入手机号码').fill('sudibuyer');
+    await field(page, '填写登录密码').fill('SudiCiOnly42');
+    await page.locator('.protocol uni-checkbox').click();
+    const login = page.waitForResponse(r => /\/api\/login(?:\?|$)/.test(r.url()));
+    await page.locator('.logon').click();
+    expect((await (await login).json()).status).toBe(200);
+    await expect(page).not.toHaveURL(/\/users\/login\//);
+    await expect(page.getByText('新品上架').first()).toBeVisible();
+    await page.screenshot({path: 'test-results/buyer-login.png', fullPage: true});
+  } finally { await context.close(); }
+});
+
 test('detail renders product images, options, and all three AI entries', async ({page}) => {
   await page.goto('/pages/goods_details/index?id=' + fixture.productId);
   await expect(page.getByText(fixture.productName).first()).toBeVisible({timeout: 30000});
@@ -103,4 +121,29 @@ test('merchant product form previews two colors by three sizes', async ({page}) 
   await page.goto('/');
   await expect(page.getByText(title).first()).toBeVisible({timeout: 30000});
   await page.screenshot({path: 'test-results/published-product.png', fullPage: true});
+});
+
+test('selected SKU goes from detail to cart and checkout with the saved address', async ({page}) => {
+  await page.goto('/pages/goods_details/index?id=' + fixture.productId);
+  await page.getByText('加入购物车', {exact: true}).click();
+  const options = page.locator('.product-window.on');
+  await expect(options).toBeVisible();
+  await options.locator('.itemn').getByText('灰', {exact: true}).click();
+  await options.locator('.itemn').getByText('L', {exact: true}).click();
+  await expect(options.locator('.stock').first()).toContainText('1');
+  const added = page.waitForResponse(r => r.url().includes('/api/cart/add'));
+  await page.getByText('加入购物车', {exact: true}).click();
+  expect((await (await added).json()).status).toBe(200);
+  await page.goto('/pages/order_addcart/order_addcart');
+  const item = page.locator('.list .item').filter({hasText: fixture.productName}).first();
+  await expect(item).toContainText('灰,L');
+  await expect(item.locator('.money')).toContainText('204');
+  await item.locator('uni-checkbox').click();
+  const confirmation = page.waitForResponse(r => r.url().includes('/api/order/confirm'));
+  await page.getByText('立即下单', {exact: true}).click();
+  expect((await (await confirmation).json()).status).toBe(200);
+  await expect(page).toHaveURL(/order_confirm/);
+  await expect(page.locator('.addressCon')).toContainText('CI test only');
+  await expect(page.getByText('提交订单', {exact: true})).toBeVisible();
+  await page.screenshot({path: 'test-results/checkout.png', fullPage: true});
 });
