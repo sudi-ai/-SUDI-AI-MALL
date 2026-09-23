@@ -63,9 +63,18 @@ if (($argv[1] ?? '') === 'worker') {
     if ($kind === 'stock') {
         try { reserve((int)$id, $unique); echo "RESULT:1\n"; }
         catch (crmeb\exceptions\ApiException $e) { echo "RESULT:0\n"; }
-    } else {
+    } elseif ($kind === 'pay') {
         $ok = app()->make(PayNotifyServices::class)->wechatProduct($id, 'test-trade', PayServices::ALIAPY_PAY, '199.00');
         echo 'RESULT:' . (int)$ok . "\n";
+    } else {
+        try {
+            $ok = app()->make(app\services\order\StoreOrderRefundServices::class)->applyRefund(
+                (int)$id, (int)$unique, [], [], 2, 199.00, ['refund_reason' => 'CI concurrent refund']
+            );
+            echo 'RESULT:' . (int)$ok . "\n";
+        } catch (crmeb\exceptions\ApiException $e) {
+            echo "RESULT:0\n";
+        }
     }
     exit;
 }
@@ -254,10 +263,35 @@ try {
     $denied = publicApi('order/comment', $review, $tokenA, 'POST');
     check(($denied['msg'] ?? '') === '订单商品已评价', 'duplicate review rejected');
     check((int)Db::name('store_product_reply')->where('oid', $oid)->count() === 1, 'one persisted review');
-    $accepted = publicApi('order/refund/apply/' . $oid, ['text' => 'CI return', 'refund_type' => 2, 'refund_price' => 199], $tokenA, 'POST');
-    check((int)($accepted['status'] ?? 0) === 200, 'owner requests return refund through actual API');
+    $refundService = app()->make(app\services\order\StoreOrderRefundServices::class);
+    $historicalRefundId = Db::name('store_order_refund')->insertGetId([
+        'store_order_id' => $oid, 'order_id' => $orderNumber . '-prior', 'uid' => $uid,
+        'refund_type' => 6, 'refund_price' => 1, 'refunded_price' => 1, 'add_time' => time(),
+    ]);
+    try {
+        $refundService->applyRefund($oid, $uid, [], [], 2, 199.00, ['refund_reason' => 'CI cumulative cap']);
+        throw new RuntimeException('Cumulative refund limit was not enforced');
+    } catch (crmeb\exceptions\ApiException $e) {
+        check($e->getMessage() === '退款金额超过订单剩余可退金额', 'application enforces cumulative refund amount cap');
+    }
+    Db::name('store_order_refund')->where('id', $historicalRefundId)->delete();
+    check((int)Db::name('store_order_status')->where('oid', $oid)->where('change_type', 'apply_refund')->count() === 0,
+        'over-cap request creates no application event');
+
+    $refundRace = race('refund', $oid, (string)$uid);
+    check(array_sum($refundRace) === 1, 'concurrent refund applications: only one request succeeds');
+    check((int)Db::name('store_order_refund')->where('store_order_id', $oid)->where('refund_type', 'in', [1, 2, 4, 5])->where('is_cancel', 0)->where('is_del', 0)->count() === 1,
+        'concurrent refund applications persist one pending request');
+    check((int)Db::name('store_order_status')->where('oid', $oid)->where('change_type', 'apply_refund')->count() === 1,
+        'concurrent refund applications write one application ledger event');
+    check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->where('trading_type', 2)->count() === 0,
+        'refund application does not prematurely book a refund');
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 1,
+        'refund application does not restore stock before approval');
+    $duplicateApply = publicApi('order/refund/apply/' . $oid, ['text' => 'CI duplicate', 'refund_type' => 2, 'refund_price' => 199], $tokenA, 'POST');
+    check(($duplicateApply['status'] ?? 200) !== 200, 'API rejects a second request while refund is pending');
     $refund = Db::name('store_order_refund')->where('store_order_id', $oid)->find();
-    check($refund && (int)$refund['refund_type'] === 2, 'return refund application persisted');
+    check($refund && (int)$refund['refund_type'] === 2, 'concurrent return refund application persisted');
     $rid = (int)$refund['id'];
     $refundService = app()->make(app\services\order\StoreOrderRefundServices::class);
     check($refundService->agreeExpress($rid), 'merchant accepts return through actual service');

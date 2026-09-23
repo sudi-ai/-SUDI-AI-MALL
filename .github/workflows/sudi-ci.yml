@@ -387,7 +387,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Record the fully tested preview commit without moving an existing tag
+      - name: Record the fully tested preview commit after verifying tag ancestry
         uses: actions/github-script@v7
         with:
           script: |
@@ -399,7 +399,11 @@ jobs:
             try { existing = await github.rest.git.getRef({...repo, ref: 'tags/' + name}); }
             catch (error) { if (error.status !== 404) throw error; }
             if (existing) {
-              if (existing.data.object.sha !== context.sha) throw new Error('Release tag already exists; never overwrite a release point');
+              if (existing.data.object.sha !== context.sha) {
+                const ancestry = await github.rest.repos.compareCommitsWithBasehead({...repo, basehead: existing.data.object.sha + '...' + context.sha});
+                if (ancestry.data.status !== 'ahead') throw new Error('Refusing to move the preview tag to a divergent or older commit');
+                await github.rest.git.updateRef({...repo, ref: 'tags/' + name, sha: context.sha, force: true});
+              }
             } else {
               await github.rest.git.createRef({...repo, ref: 'refs/tags/' + name, sha: context.sha});
             }

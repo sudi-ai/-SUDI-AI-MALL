@@ -555,9 +555,8 @@ class PayClient extends BaseClient
             if (!$path || !is_file($path)) return false;
             $pem = file_get_contents($path);
         } else {
-            $certificate = $this->getCertficatescAttr();
-            if (($certificate['serial_no'] ?? '') !== $serial) $certificate = $this->getCertficates();
-            if (($certificate['serial_no'] ?? '') !== $serial) return false;
+            $certificate = $this->getCertficatesBySerial((string)$serial);
+            if (!$certificate) return false;
             $pem = $certificate['certificates'] ?? '';
         }
         $message = $timestamp . "\n" . $nonce . "\n" . $request->getInput() . "\n";

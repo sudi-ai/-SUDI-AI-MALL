@@ -30,6 +30,11 @@ checkWechat(WechatCallbackGuard::amount(['appid' => 'provider', 'sub_appid' => '
 class TestWechatV3Client extends crmeb\services\easywechat\v3pay\PayClient {
     public function __construct(array $config) { $this->app = ['config' => ['v3_payment' => $config]]; }
 }
+class TestWechatCertificateClient extends TestWechatV3Client {
+    public $fixtureResponse = [];
+    public function request(string $endpoint, string $method = 'POST', array $options = [], $serial = true) { return $this->fixtureResponse; }
+    public function decrypt(array $encryptedCertificate) { return $encryptedCertificate['pem']; }
+}
 $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
 checkWechat((bool)$key, 'local ephemeral RSA key generated');
 $pemPath = tempnam(sys_get_temp_dir(), 'sudi-wx-key-');
@@ -71,4 +76,13 @@ try {
     checkWechat($called === 0 && $response->getData()['code'] === 'FAIL', 'WeChat v3 rejects an unpaid encrypted transaction');
     [$response, $called] = $send($makeBody('SUCCESS', 'wrong-app'));
     checkWechat($response->getData()['code'] === 'FAIL', 'WeChat v3 signed wrong APPID is rejected');
+
+    $certClient = new TestWechatCertificateClient(['key' => $apiKey, 'serial_no' => 'CI_ROTATION_' . uniqid()]);
+    $publicPem = openssl_pkey_get_details($key)['key'];
+    $certClient->fixtureResponse = ['data' => [
+        ['serial_no' => 'OLDER_CERT', 'encrypt_certificate' => ['pem' => $publicPem]],
+        ['serial_no' => 'ROTATED_CERT', 'encrypt_certificate' => ['pem' => $publicPem]],
+    ]];
+    $rotatedCertificate = $certClient->getCertficatesBySerial('ROTATED_CERT');
+    checkWechat(($rotatedCertificate['serial_no'] ?? '') === 'ROTATED_CERT', 'WeChat v3 selects a matching certificate from a multi-certificate response');
 } finally { unlink($pemPath); }
