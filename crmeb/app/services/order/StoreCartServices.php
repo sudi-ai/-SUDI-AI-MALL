@@ -176,13 +176,8 @@ class StoreCartServices extends BaseServices
                         throw new ApiException('您要购买的优惠券已失效，无法购买');
                     }
                 }
-                $stockNum = $this->dao->value(['product_id' => $productId, 'product_attr_unique' => $unique, 'uid' => $uid, 'status' => 1], 'cart_num') ?: 0;
-                if ($nowStock < ($cartNum + $stockNum)) {
-                    $surplusStock = $nowStock - $cartNum;//剩余库存
-                    if ($surplusStock < $stockNum) {
-                        $this->dao->update(['product_id' => $productId, 'product_attr_unique' => $unique, 'uid' => $uid, 'status' => 1], ['cart_num' => $surplusStock]);
-                    }
-                }
+                // Validation must not silently shrink an existing cart. The
+                // setCart merge below checks the combined requested quantity.
                 break;
             case 1://秒杀
                 /** @var StoreSeckillServices $seckillService */
@@ -334,6 +329,7 @@ class StoreCartServices extends BaseServices
         if (!$id || !$number || !$uid) return false;
         $where = ['uid' => $uid, 'id' => $id];
         $carInfo = $this->dao->getOne($where, 'product_id,combination_id,seckill_id,bargain_id,product_attr_unique,cart_num');
+        if (!$carInfo) throw new ApiException('购物车商品不存在');
 
         //购物车修改数量检查限购
         /** @var StoreProductServices $productServices */

@@ -42,6 +42,7 @@ function publicApi($path, array $query = [], $token = '', $method = 'GET') {
     curl_close($handle);
     $result = json_decode($body, true);
     if ($status !== 200 || !is_array($result)) throw new RuntimeException("API failed: $path $status $body");
+    echo 'API ' . $path . ' status=' . ($result['status'] ?? 'missing') . ' msg=' . ($result['msg'] ?? '') . "\n";
     return $result;
 }
 function reserve($pid, $unique, $num = 1) {
@@ -220,12 +221,30 @@ try {
     check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, '1.00'), 'wrong amount rejected even after paid');
     check($notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, '199.00'), 'sequential callback is idempotent');
     check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->count() === 1, 'sequential retry does not duplicate ledger');
+    $missingTracking = publicApi('order/express/' . $orderNumber, [], $tokenA);
+    check(($missingTracking['msg'] ?? '') === '快递单号不存在', 'missing tracking has a clear response');
+    $courier = Db::name('express')->where('code', '<>', '')->find();
+    check(!empty($courier), 'fixture has a courier');
+    app()->make(app\services\order\StoreOrderDeliveryServices::class)->delivery($oid, [
+        'type' => 1, 'delivery_name' => $courier['name'], 'delivery_code' => $courier['code'],
+        'delivery_id' => 'SUDICIINVALID123', 'express_record_type' => 1, 'express_temp_id' => '',
+        'to_name' => '', 'to_tel' => '', 'to_addr' => '', 'pickup_time' => [],
+    ]);
+    check((int)Db::name('store_order')->where('id', $oid)->value('status') === 1, 'merchant delivery service persists shipped status');
+    check(Db::name('store_order')->where('id', $oid)->value('delivery_id') === 'SUDICIINVALID123', 'merchant delivery persists tracking number');
+    $tracking = publicApi('order/express/' . $orderNumber, [], $tokenA);
+    check(isset($tracking['status']) && (($tracking['status'] === 200 && isset($tracking['data']['express']))
+        || ($tracking['status'] !== 200 && !empty($tracking['msg']))), 'invalid tracking returns a structured response');
     foreach ([0, 1, -1, -2] as $state) {
         Db::name('store_order')->where('id', $oid)->update(['status' => $state]);
         $denied = publicApi('order/comment', $review, $tokenA, 'POST');
         check(($denied['msg'] ?? '') === '请确认收货后再评价', 'unreceived or closed order cannot be reviewed: ' . $state);
     }
-    Db::name('store_order')->where('id', $oid)->update(['status' => 2]);
+    Db::name('store_order')->where('id', $oid)->update(['status' => 1]);
+    $denied = publicApi('order/take', ['uni' => $orderNumber], $tokenB, 'POST');
+    check(($denied['status'] ?? 200) !== 200, 'buyer B cannot confirm buyer A receipt');
+    $received = publicApi('order/take', ['uni' => $orderNumber], $tokenA, 'POST');
+    check(($received['status'] ?? 0) === 200 && (int)Db::name('store_order')->where('id', $oid)->value('status') === 2, 'owner confirms receipt through actual API');
     $accepted = publicApi('order/comment', $review, $tokenA, 'POST');
     check(($accepted['status'] ?? 0) === 200, 'received order accepts rating text and image');
     $denied = publicApi('order/comment', $review, $tokenA, 'POST');
