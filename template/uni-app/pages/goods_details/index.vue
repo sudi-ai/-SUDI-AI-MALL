@@ -97,13 +97,6 @@
         @goBuy="goBuy"
         @share="listenerActionSheet"
       ></productBottom>
-      <shareRedPackets
-        :sharePacket="sharePacket"
-        @listenerActionSheet="listenerActionSheet"
-        @closeChange="closeChange"
-        :showAnimate="showAnimate"
-        @boxStatus="boxStatus"
-      ></shareRedPackets>
       <!-- 组件 -->
       <productWindow
         :attr="attr"
@@ -288,7 +281,6 @@ import cusPreviewImg from "@/components/cusPreviewImg/index.vue";
 import swiperPrevie from "@/components/cusPreviewImg/swiperPrevie.vue";
 import couponListWindow from "@/components/couponListWindow";
 import productWindow from "@/components/productWindow";
-import shareRedPackets from "@/components/shareRedPackets";
 import kefuIcon from "@/components/kefuIcon";
 import menuIcon from "@/components/menuIcon.vue";
 import { updateURLParameter } from "@/utils";
@@ -312,7 +304,6 @@ export default {
   components: {
     couponListWindow,
     productWindow,
-    shareRedPackets,
     kefuIcon,
     menuIcon,
     cusPreviewImg,
