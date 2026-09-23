@@ -101,7 +101,7 @@ function race($kind, $id, $unique = '') {
 }
 
 $pid = $uid = $oid = $bid = $rid = $aid = $createdOid = 0;
-$orderNumber = 'SUDI-CI-' . bin2hex(random_bytes(8));
+$orderNumber = 'sudici' . bin2hex(random_bytes(8));
 try {
     $attrs = [];
     foreach (['黑', '灰'] as $color) foreach (['S', 'M', 'L'] as $size) {
