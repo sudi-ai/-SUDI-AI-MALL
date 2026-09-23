@@ -84,6 +84,10 @@ test('category and cart pages load without a blank page', async ({page}) => {
   await expect(page.locator('uni-page-body')).toContainText(/分类|女装|服饰|暂无/, {timeout: 30000});
   await expect(page.getByText('手机数码', {exact: true}).first()).toBeVisible();
   await page.screenshot({path: 'test-results/category.png', fullPage: true});
+  await page.getByText('全部商品', {exact: true}).first().click();
+  await expect(page.getByText(fixture.productName).first()).toBeVisible({timeout: 30000});
+  await page.getByText(fixture.productName).first().click();
+  await expect(page).toHaveURL(/goods_details/);
   await page.goto('/pages/order_addcart/order_addcart');
   await expect(page.locator('uni-page-body')).toContainText(/购物车|去逛逛|商品/, {timeout: 30000});
   await page.screenshot({path: 'test-results/cart.png', fullPage: true});

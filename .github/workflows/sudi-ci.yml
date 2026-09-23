@@ -378,3 +378,28 @@ jobs:
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/sudi-http.log || true
+
+  mark-preview-stable:
+    needs: [php-lint, source-sanity, composer-smoke, h5-build, mysql-redis-integration]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/sudi-ai-dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Record the fully tested preview commit without moving an existing tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const repo = {...context.repo};
+            const name = 'SUDI-MALL-PREVIEW-STABLE';
+            const branch = await github.rest.git.getRef({...repo, ref: 'heads/sudi-ai-dev'});
+            if (branch.data.object.sha !== context.sha) throw new Error('Branch changed during regression; refusing stale release point');
+            let existing;
+            try { existing = await github.rest.git.getRef({...repo, ref: 'tags/' + name}); }
+            catch (error) { if (error.status !== 404) throw error; }
+            if (existing) {
+              if (existing.data.object.sha !== context.sha) throw new Error('Release tag already exists; never overwrite a release point');
+            } else {
+              await github.rest.git.createRef({...repo, ref: 'refs/tags/' + name, sha: context.sha});
+            }
+            core.notice(name + ' = ' + context.sha);
