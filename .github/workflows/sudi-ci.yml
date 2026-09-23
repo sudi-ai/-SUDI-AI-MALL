@@ -381,7 +381,7 @@ jobs:
 
   mark-preview-stable:
     needs: [php-lint, source-sanity, composer-smoke, h5-build, mysql-redis-integration]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/sudi-ai-dev'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/sudi-ai-dev' && github.event.head_commit.message == 'release: SUDI-MALL-PREVIEW-STABLE'
     runs-on: ubuntu-latest
     permissions:
       contents: write
