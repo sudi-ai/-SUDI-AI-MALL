@@ -23,6 +23,7 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(page.getByText('AI 购物', {exact: true}).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('includes(item.name)');
   await expect(page.locator('uni-page-body')).not.toContainText(/限时秒杀|拼团活动|砍价中心|积分商城|立即签到|抽奖活动|九阳/);
+  await expect(page.locator('.hotspot')).toHaveCount(0, {timeout: 30000});
   await page.screenshot({path: 'test-results/home.png', fullPage: true});
   await product.click();
   await expect(page).toHaveURL(/goods_details/);

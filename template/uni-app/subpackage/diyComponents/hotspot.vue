@@ -1,11 +1,12 @@
 <template>
-  <common-wrapper :config="configData">
+  <common-wrapper :config="configData" v-if="dataConfig.picStyle.url && !imageFailed">
     <view class="hotspot">
       <image
         :src="dataConfig.picStyle.url"
         mode="widthFix"
         class="image"
         :style="[imageRadius]"
+        @error="imageFailed = true"
       ></image>
       <view
         v-for="item in dataConfig.picStyle.list"
@@ -38,7 +39,10 @@ export default {
     },
   },
   data() {
-    return {};
+    return { imageFailed: false };
+  },
+  watch: {
+    'dataConfig.picStyle.url'() { this.imageFailed = false; },
   },
   computed: {
     imageRadius() {
