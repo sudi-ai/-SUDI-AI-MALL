@@ -42,7 +42,7 @@ class PayNotifyServices
                 // payment events and the capital ledger.
                 $orderInfo = Db::name('store_order')->where('order_id', $order_id)->lock(true)->find();
                 if (!$orderInfo) return false;
-                if ($payType === PayServices::ALIAPY_PAY) {
+                if (in_array($payType, [PayServices::ALIAPY_PAY, PayServices::WEIXIN_PAY], true)) {
                     if ($paidAmount === null || !preg_match('/^\d+(?:\.\d{1,2})?$/D', (string)$paidAmount)
                         || bccomp((string)$orderInfo['pay_price'], (string)$paidAmount, 2) !== 0) {
                         return false;

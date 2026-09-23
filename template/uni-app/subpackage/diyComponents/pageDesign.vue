@@ -47,7 +47,7 @@
       <view class="index">
         <!-- 自定义样式 -->
         <block v-for="(item, index) in styleConfig" :key="index">
-          <view :id="item.id" v-if="!isHome || !["seckill","bargain","combination","presale","pointsMall","liveBroadcast","promotionList"].includes(item.name)">
+          <view :id="item.id" v-if="!isHome || !['seckill','bargain','combination','presale','pointsMall','liveBroadcast','promotionList'].includes(item.name)">
             <userInfor
               v-if="item.name == 'userInfor'"
               :dataConfig="item"

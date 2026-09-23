@@ -214,6 +214,7 @@ try {
     $notify = app()->make(PayNotifyServices::class);
     foreach (['198.99', '199.001', '', 'invalid', null] as $amount) {
         check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::ALIAPY_PAY, $amount), 'invalid payment amount rejected: ' . var_export($amount, true));
+        check(!$notify->wechatProduct($orderNumber, 'test-trade', PayServices::WEIXIN_PAY, $amount), 'invalid WeChat payment amount rejected: ' . var_export($amount, true));
     }
     check((int)Db::name('store_order')->where('id', $oid)->value('paid') === 0, 'rejected payment remains unpaid');
     $results = race('pay', $orderNumber);

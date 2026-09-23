@@ -517,10 +517,15 @@ class PayClient extends BaseClient
     public function handleNotify($callback)
     {
         $request = request();
-        $success = $request->post('event_type') === 'TRANSACTION.SUCCESS';
-        $data = $this->decrypt($request->post('resource', []));
+        try {
+            if (!$this->verifyNotification($request)) return response(['code' => 'FAIL', 'message' => 'Invalid signature'], 400, [], 'json');
+            $data = json_decode($this->decrypt($request->post('resource', [])));
+        } catch (\Throwable $e) {
+            return response(['code' => 'FAIL', 'message' => 'Invalid notification'], 400, [], 'json');
+        }
+        $success = $request->post('event_type') === 'TRANSACTION.SUCCESS' && ($data->trade_state ?? '') === 'SUCCESS';
 
-        $handleResult = call_user_func_array($callback, [json_decode($data), $success]);
+        $handleResult = $success && call_user_func_array($callback, [$data, true]);
         if (is_bool($handleResult) && $handleResult) {
             $response = [
                 'code' => 'SUCCESS',
@@ -534,6 +539,29 @@ class PayClient extends BaseClient
         }
 
         return response($response, 200, [], 'json');
+    }
+
+    protected function verifyNotification($request): bool
+    {
+        $timestamp = $request->header('wechatpay-timestamp', '');
+        $nonce = $request->header('wechatpay-nonce', '');
+        $serial = $request->header('wechatpay-serial', '');
+        $signature = base64_decode($request->header('wechatpay-signature', ''), true);
+        if (!ctype_digit((string)$timestamp) || abs(time() - (int)$timestamp) > 300 || $nonce === '' || $serial === '' || !$signature) return false;
+        $config = $this->app['config']['v3_payment'];
+        if (!empty($config['v3_pay_public_key'])) {
+            if (!hash_equals((string)$config['v3_pay_public_key'], (string)$serial)) return false;
+            $path = $config['v3_pay_public_pem'] ?? '';
+            if (!$path || !is_file($path)) return false;
+            $pem = file_get_contents($path);
+        } else {
+            $certificate = $this->getCertficatescAttr();
+            if (($certificate['serial_no'] ?? '') !== $serial) $certificate = $this->getCertficates();
+            if (($certificate['serial_no'] ?? '') !== $serial) return false;
+            $pem = $certificate['certificates'] ?? '';
+        }
+        $message = $timestamp . "\n" . $nonce . "\n" . $request->getInput() . "\n";
+        return openssl_verify($message, $signature, $pem, OPENSSL_ALGO_SHA256) === 1;
     }
 
     public function handleTransferNotify($callback)

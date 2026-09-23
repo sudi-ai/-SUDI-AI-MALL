@@ -6,6 +6,9 @@ test.beforeEach(async ({page}) => {
   await page.addInitScript(({token, uid}) => {
     localStorage.setItem('LOGIN_STATUS_TOKEN', token);
     localStorage.setItem('UID', JSON.stringify({type: 'number', data: uid}));
+    localStorage.setItem('UNI-APP-CRMEB:TAG', JSON.stringify({type: 'object', data: [
+      {key: 'LOGIN_STATUS_TOKEN', expire: 0}, {key: 'UID', expire: 0},
+    ]}));
   }, fixture);
 });
 
@@ -15,6 +18,7 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   const product = page.getByText(fixture.productName, {exact: false}).first();
   await expect(product).toBeVisible();
   await expect(page.getByText('AI 购物', {exact: true}).first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('includes(item.name)');
   await page.screenshot({path: 'test-results/home.png', fullPage: true});
   await product.click();
   await expect(page).toHaveURL(/goods_details/);
@@ -27,6 +31,7 @@ test('detail renders product images, options, and all three AI entries', async (
   await expect(page.getByText('AI 尺码', {exact: true})).toBeVisible();
   await expect(page.getByText('AI 搭配', {exact: true})).toBeVisible();
   await expect(page.getByText('问 AI 客服', {exact: true})).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('includes(item.name)');
   expect(await page.locator('img').evaluateAll(imgs => imgs.some(i => i.src.includes('test.jpg') && i.complete && i.naturalWidth > 0))).toBeTruthy();
   await page.screenshot({path: 'test-results/detail.png', fullPage: true});
   await page.getByText('AI 尺码', {exact: true}).click();

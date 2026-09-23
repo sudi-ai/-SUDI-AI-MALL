@@ -1952,7 +1952,7 @@ action-sheet-item {
 </style>
 
 <style scoped>
-.sudi-ai-tools{margin:20rpx;padding:24rpx;background:#fff;border-radius:18rpx}
+.sudi-ai-tools{margin:20rpx;margin-bottom:calc(160rpx + env(safe-area-inset-bottom));padding:24rpx;background:#fff;border-radius:18rpx}
 .sudi-ai-tools-title{font-size:28rpx;font-weight:700;color:#222;margin-bottom:18rpx}
 .sudi-ai-tools-actions{display:flex;gap:14rpx}
 .sudi-ai-tool{flex:1;margin:0;padding:0;height:70rpx;line-height:70rpx;border-radius:999rpx;background:#fff0f4;color:#ff3366;font-size:24rpx}

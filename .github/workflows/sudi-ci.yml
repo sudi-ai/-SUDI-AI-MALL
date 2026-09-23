@@ -30,6 +30,11 @@ jobs:
           php -l crmeb/app/api/controller/v1/order/StoreOrderRefundController.php
           php -l crmeb/app/services/order/StoreOrderRefundServices.php
           php -l tests/sudi/commerce_service_integration.php
+          php -l crmeb/app/services/pay/WechatCallbackGuard.php
+          php -l crmeb/crmeb/services/easywechat/v3pay/PayClient.php
+          php -l crmeb/crmeb/services/app/WechatService.php
+          php -l crmeb/crmeb/services/pay/storage/V3WechatPay.php
+          php -l tests/sudi/wechat_signature_test.php
 
   source-sanity:
     runs-on: ubuntu-latest
@@ -71,6 +76,10 @@ jobs:
           coverage: none
       - name: Validate Composer manifest
         run: composer validate --no-check-publish
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-php74-${{ runner.os }}-${{ hashFiles('crmeb/composer.lock') }}
       - name: Install PHP dependencies
         run: |
           for attempt in 1 2 3; do
@@ -82,6 +91,8 @@ jobs:
         run: php think list >/tmp/sudi-think-list.txt
       - name: Actual Alipay RSA2 callback verification
         run: php ../tests/sudi/alipay_signature_test.php
+      - name: Actual WeChat v2 and v3 signature verification
+        run: php ../tests/sudi/wechat_signature_test.php
 
   h5-build:
     runs-on: ubuntu-latest
@@ -142,6 +153,10 @@ jobs:
           php-version: '7.4'
           extensions: json,curl,bcmath,mbstring,zip,simplexml,pdo_mysql,redis,gd
           coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-php74-${{ runner.os }}-${{ hashFiles('crmeb/composer.lock') }}
       - name: Install PHP dependencies
         run: |
           for attempt in 1 2 3; do
