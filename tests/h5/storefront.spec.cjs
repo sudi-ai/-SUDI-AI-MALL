@@ -22,6 +22,7 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(product).toBeVisible();
   await expect(page.getByText('AI 购物', {exact: true}).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('includes(item.name)');
+  await expect(page.locator('uni-page-body')).not.toContainText(/限时秒杀|拼团活动|砍价中心|积分商城|立即签到|抽奖活动|九阳/);
   await page.screenshot({path: 'test-results/home.png', fullPage: true});
   await product.click();
   await expect(page).toHaveURL(/goods_details/);
@@ -76,8 +77,11 @@ test('detail renders product images, options, and all three AI entries', async (
 });
 
 test('category and cart pages load without a blank page', async ({page}) => {
+  const categories = await (await page.request.get('/api/category')).json();
+  expect(categories.data.find(category => category.id === 1).cate_name).toBe('手机数码');
   await page.goto('/pages/goods_cate/goods_cate');
   await expect(page.locator('uni-page-body')).toContainText(/分类|女装|服饰|暂无/, {timeout: 30000});
+  await expect(page.getByText('手机数码', {exact: true}).first()).toBeVisible();
   await page.screenshot({path: 'test-results/category.png', fullPage: true});
   await page.goto('/pages/order_addcart/order_addcart');
   await expect(page.locator('uni-page-body')).toContainText(/购物车|去逛逛|商品/, {timeout: 30000});

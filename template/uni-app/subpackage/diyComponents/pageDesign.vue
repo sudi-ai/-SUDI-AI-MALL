@@ -559,6 +559,15 @@ export default {
       if (data.value) {
         let lastArr = this.objToArr(data.value);
         lastArr.forEach((item) => {
+          if (this.isHome) {
+            if (['seckill', 'bargain', 'combination', 'presale', 'pointsMall', 'liveBroadcast', 'promotionList', 'signIn', 'blankPage', 'coupon', 'member', 'newVip', 'home_paid_vip'].includes(item.name)) return;
+            if (item.name === 'menus' && item.menuConfig) {
+              item = {...item, menuConfig: {...item.menuConfig, list: (item.menuConfig.list || []).filter(menu => {
+                const values = (menu.info || []).map(info => info.value || '').join(' ');
+                return !/秒杀|拼团|砍价|积分|签到|抽奖|红包|优惠券|直播|预售|会员|seckill|combination|bargain|points|sign_in|lottery|coupon|presell|paid_vip/i.test(values);
+              })}};
+            }
+          }
           if (item.name == "pageFoot" && !this.microPage) {
             this.footerConfigData = item;
           }
