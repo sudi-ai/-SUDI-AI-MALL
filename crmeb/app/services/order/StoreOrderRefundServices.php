@@ -122,6 +122,19 @@ class StoreOrderRefundServices extends BaseServices
     public function agreeRefund(int $id, array $refundData)
     {
         $order = $this->transaction(function () use ($id, $refundData) {
+            // Lock the refund record before checking its state. A controller's
+            // earlier check is not sufficient when requests arrive together.
+            $lockedRefund = Db::name('store_order_refund')->where('id', $id)->lock(true)->find();
+            if (!$lockedRefund) throw new AdminException('数据不存在');
+            if ($lockedRefund['is_cancel'] || $lockedRefund['is_del']
+                || !in_array((int)$lockedRefund['refund_type'], [1, 2, 5], true)) {
+                throw new AdminException('售后订单状态不支持该操作');
+            }
+            $refundedPrice = bcadd((string)$lockedRefund['refunded_price'], (string)$refundData['refund_price'], 2);
+            if (bccomp((string)$refundData['refund_price'], '0', 2) < 0
+                || bccomp($refundedPrice, (string)$lockedRefund['refund_price'], 2) > 0) {
+                throw new AdminException('退款金额大于可退金额');
+            }
             //退款拆分
             $orderRefundInfo = $this->dao->get($id);
             if (!$orderRefundInfo) throw new AdminException('数据不存在');
@@ -175,8 +188,7 @@ class StoreOrderRefundServices extends BaseServices
             //退金额
             if ($refundData['refund_price'] > 0) {
                 if (!isset($refundData['refund_id']) || !$refundData['refund_id']) {
-                    mt_srand();
-                    $refundData['refund_id'] = $splitOrderInfo['order_id'] . rand(100, 999);
+                    $refundData['refund_id'] = 'sudi_refund_' . $id;
                 }
                 if ($splitOrderInfo['pid'] > 0) {//子订单
                     $refundOrder = $this->storeOrderServices->get((int)$splitOrderInfo['pid']);
@@ -256,7 +268,8 @@ class StoreOrderRefundServices extends BaseServices
                 'refund_price' => $refundData['refund_price'],
             ], 'id');
             $splitOrderInfo = $this->storeOrderServices->get($splitOrderInfo['id']);
-            $this->dao->update($id, ['store_order_id' => $splitOrderInfo['id']]);
+            $this->dao->update($id, ['store_order_id' => $splitOrderInfo['id'],
+                'refund_type' => 6, 'refunded_price' => $refundedPrice, 'refunded_time' => time()]);
             if ($otherOrder['id'] != 0 && $orderInfo['id'] != $otherOrder['id']) {//拆分生成新订单了
                 //修改原订单还在申请的退款单
                 $this->dao->update(['store_order_id' => $orderInfo['id']], ['store_order_id' => $otherOrder['id']]);

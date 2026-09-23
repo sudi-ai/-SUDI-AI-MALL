@@ -99,7 +99,7 @@ function race($kind, $id, $unique = '') {
     return $results;
 }
 
-$pid = $uid = $oid = $bid = $rid = 0;
+$pid = $uid = $oid = $bid = $rid = $aid = $createdOid = 0;
 $orderNumber = 'SUDI-CI-' . bin2hex(random_bytes(8));
 try {
     $attrs = [];
@@ -127,8 +127,8 @@ try {
     check(($published['status'] ?? 0) === 200 && in_array($pid, array_column($published['data'], 'id')), 'ordinary published product appears in homepage feed');
     $category = publicApi('products', ['sid' => 1, 'ids' => $pid]);
     check(($category['status'] ?? 0) === 200 && in_array($pid, array_column($category['data'], 'id')), 'category API finds published product');
-    $skus = Db::name('store_product_attr_value')->where('product_id', $pid)->order('id')->column('unique');
-    check((int)Db::name('store_product_attr_value')->where('product_id', $pid)->count() === 6, 'six distinct color/size SKUs');
+    $skus = Db::name('store_product_attr_value')->where('product_id', $pid)->where('type', 0)->order('id')->column('unique');
+    check(count($skus) === 6 && count(array_unique($skus)) === 6, 'six distinct ordinary-product color/size SKUs: ' . count($skus));
     $results = race('stock', $pid, $skus[0]);
     check(array_sum($results) === 1, 'real order stock service: only one last-unit buyer succeeds');
     check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 0, 'SKU never negative');
@@ -151,13 +151,44 @@ try {
     $uid = Db::name('user')->insertGetId(['account' => $orderNumber, 'pwd' => '', 'nickname' => 'CI buyer', 'phone' => '', 'status' => 1, 'add_time' => time(), 'last_time' => time()]);
     $oid = Db::name('store_order')->insertGetId([
         'order_id' => $orderNumber, 'uid' => $uid, 'real_name' => 'CI buyer',
-        'user_phone' => '', 'user_address' => 'CI only', 'cart_id' => '[]',
+        'user_phone' => '', 'user_address' => 'CI only', 'cart_id' => '["ci-cart"]',
         'total_num' => 1, 'total_price' => 199, 'pay_price' => 199, 'paid' => 0,
         'add_time' => time(), 'status' => 0, 'pay_type' => 'alipay',
     ]);
     $bid = Db::name('user')->insertGetId(['account' => $orderNumber . 'B', 'pwd' => '', 'nickname' => 'CI buyer B', 'status' => 1, 'add_time' => time(), 'last_time' => time()]);
     $tokenA = app()->make(crmeb\utils\JwtAuth::class)->createToken($uid, 'api')['token'];
     $tokenB = app()->make(crmeb\utils\JwtAuth::class)->createToken($bid, 'api')['token'];
+    $detail = publicApi('product/detail/' . $pid, [], $tokenA);
+    check(($detail['status'] ?? 0) === 200, 'published product detail API responds');
+    $added = publicApi('cart/add', ['productId' => $pid, 'cartNum' => 1, 'uniqueId' => $skus[1]], $tokenA, 'POST');
+    check(($added['status'] ?? 0) === 200, 'buyer adds selected SKU to cart');
+    $cartId = (int)$added['data']['cartId'];
+    check(Db::name('store_cart')->where('id', $cartId)->value('product_attr_unique') === $skus[1], 'cart persists selected SKU');
+    $denied = publicApi('cart/add', ['productId' => $pid, 'cartNum' => 1, 'uniqueId' => $skus[1]], $tokenA, 'POST');
+    check(($denied['status'] ?? 200) !== 200 && strpos($denied['msg'] ?? '', '库存不足') !== false, 'cart merge cannot exceed SKU stock');
+    $denied = publicApi('cart/num', ['id' => $cartId, 'number' => 2], $tokenA, 'POST');
+    check(($denied['status'] ?? 200) !== 200 && strpos($denied['msg'] ?? '', '库存不足') !== false, 'cart quantity cannot exceed stock');
+    check((int)Db::name('store_cart')->where('id', $cartId)->value('cart_num') === 1, 'failed cart changes preserve quantity');
+    $soldOut = publicApi('cart/add', ['productId' => $pid, 'cartNum' => 1, 'uniqueId' => $skus[0]], $tokenA, 'POST');
+    check(($soldOut['status'] ?? 200) !== 200, 'zero stock SKU cannot be added');
+    $aid = Db::name('user_address')->insertGetId(['uid' => $uid, 'real_name' => 'CI buyer', 'phone' => '13800000000',
+        'province' => '广东省', 'city' => '广州市', 'district' => '天河区', 'detail' => 'CI test only', 'city_id' => 440100, 'is_default' => 1, 'add_time' => time()]);
+    $confirmation = publicApi('order/confirm', ['cartId' => (string)$cartId, 'new' => 0, 'addressId' => $aid, 'shipping_type' => 1], $tokenA, 'POST');
+    check(($confirmation['status'] ?? 0) === 200 && !empty($confirmation['data']['orderKey']), 'real cart order confirmation succeeds');
+    $created = publicApi('order/create/' . $confirmation['data']['orderKey'], ['addressId' => $aid, 'payType' => 'alipay', 'shipping_type' => 1], $tokenA, 'POST');
+    check(($created['status'] ?? 0) === 200, 'real HTTP order creation succeeds');
+    $createdNumber = $created['data']['result']['orderId'] ?? $created['data']['orderId'] ?? '';
+    $createdOrder = Db::name('store_order')->where('order_id', $createdNumber)->find();
+    $createdOid = (int)($createdOrder['id'] ?? 0);
+    check($createdOid > 0 && (int)$createdOrder['paid'] === 0 && bccomp($createdOrder['pay_price'], '200.00', 2) === 0, 'created unpaid order uses server SKU price');
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[1])->value('stock') === 0, 'actual order creation reserves SKU stock');
+    $denied = publicApi('order/cancel', ['id' => $createdNumber], $tokenB, 'POST');
+    check(($denied['status'] ?? 200) !== 200, 'buyer B cannot cancel buyer A order');
+    $cancelled = publicApi('order/cancel', ['id' => $createdNumber], $tokenA, 'POST');
+    check(($cancelled['status'] ?? 0) === 200, 'owner cancels unpaid order');
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[1])->value('stock') === 1, 'cancellation restores SKU stock');
+    publicApi('order/cancel', ['id' => $createdNumber], $tokenA, 'POST');
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[1])->value('stock') === 1, 'duplicate cancellation does not restore stock twice');
     $denied = publicApi('admin/manage/product/create', [], $tokenB, 'POST');
     check(($denied['msg'] ?? '') === '权限不足', 'authenticated ordinary buyer cannot publish products');
     $denied = publicApi('order/detail/' . $orderNumber, [], $tokenB);
@@ -212,6 +243,20 @@ try {
     check((string)Db::name('store_order_refund')->where('id', $rid)->value('refund_express') === '', 'foreign return remains unchanged');
     $accepted = publicApi('order/refund/express', $returnData, $tokenA, 'POST');
     check(($accepted['status'] ?? 0) === 200, 'owner can submit return tracking');
+    // Offline fixture exercises bookkeeping without contacting a payment provider.
+    Db::name('store_order')->where('id', $oid)->update(['status' => 0, 'pay_type' => 'offline']);
+    $refundService = app()->make(app\services\order\StoreOrderRefundServices::class);
+    check($refundService->agreeRefund($rid, ['refund_price' => '199.00', 'pay_price' => '199.00', 'order_id' => $orderNumber]), 'actual refund service succeeds for offline fixture');
+    check((int)Db::name('store_order')->where('id', $oid)->value('refund_status') === 2, 'refunded order status persisted');
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 1, 'refund restores reserved SKU');
+    try {
+        $refundService->agreeRefund($rid, ['refund_price' => '199.00', 'pay_price' => '199.00', 'order_id' => $orderNumber]);
+        throw new RuntimeException('Duplicate refund accepted');
+    } catch (crmeb\exceptions\AdminException $e) {
+        check($e->getMessage() === '售后订单状态不支持该操作', 'duplicate refund rejected before side effects');
+    }
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 1, 'duplicate refund does not restore stock twice');
+    check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->where('trading_type', 2)->count() === 1, 'one refund ledger entry');
     echo "SERVICE INTEGRATION PACK PASSED (not full browser/end-to-end acceptance)\n";
 } finally {
     if ($oid) {
@@ -225,10 +270,17 @@ try {
     if ($uid) Db::name('user')->where('uid', $uid)->delete();
     if ($bid) Db::name('user')->where('uid', $bid)->delete();
     if ($pid) {
+        Db::name('store_cart')->where('product_id', $pid)->delete();
         foreach (['store_product_attr', 'store_product_attr_result', 'store_product_cate', 'store_product_description'] as $table) {
             Db::name($table)->where('product_id', $pid)->delete();
         }
         Db::name('store_product_attr_value')->where('product_id', $pid)->delete();
         Db::name('store_product')->where('id', $pid)->delete();
+    }
+    if ($aid) Db::name('user_address')->where('id', $aid)->delete();
+    if ($createdOid) {
+        Db::name('store_order_status')->where('oid', $createdOid)->delete();
+        Db::name('store_order_cart_info')->where('oid', $createdOid)->delete();
+        Db::name('store_order')->where('id', $createdOid)->delete();
     }
 }
