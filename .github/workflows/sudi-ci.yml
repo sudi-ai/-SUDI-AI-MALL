@@ -192,7 +192,10 @@ jobs:
       - name: Import CRMEB database
         run: |
           mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL sql_mode='NO_ENGINE_SUBSTITUTION';"
-          mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 crmeb31 < public/install/crmeb.sql
+          mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 --init-command='SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci' crmeb31 < public/install/crmeb.sql
+          CATEGORY_HEX=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e 'SELECT HEX(cate_name) FROM eb_store_category WHERE id=1')
+          echo "Imported category UTF-8 bytes: $CATEGORY_HEX"
+          test "$CATEGORY_HEX" = 'E6898BE69CBAE695B0E7A081'
           mysql -h127.0.0.1 -uroot -proot crmeb31 <<'SQL'
           UPDATE eb_system_config SET value='"http://127.0.0.1:8000"' WHERE menu_name='site_url';
           SQL
