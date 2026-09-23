@@ -24,6 +24,8 @@ jobs:
           php -l crmeb/app/services/pay/PayNotifyServices.php
           php -l crmeb/app/listener/pay/NotifyListener.php
           php -l crmeb/crmeb/services/AliPayService.php
+          php -l crmeb/app/dao/BaseDao.php
+          php -l tests/sudi/commerce_service_integration.php
 
   source-sanity:
     runs-on: ubuntu-latest
@@ -273,6 +275,21 @@ jobs:
           grep -q "getProductStock" app/services/order/StoreOrderCreateServices.php
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE sudi_ci_stock;"
           echo "FINAL COMMERCE RISK ACCEPTANCE PACK OK"
+      - name: Real commerce service integration
+        env:
+          SUDI_DISPOSABLE_TEST_DB: '1'
+        run: |
+          set -o pipefail
+          php ../tests/sudi/commerce_service_integration.php 2>&1 | tee /tmp/sudi-service-integration.log
+      - name: Upload regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sudi-regression-logs
+          path: |
+            /tmp/sudi-service-integration.log
+            /tmp/sudi-http.log
+            crmeb/runtime/log/
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/sudi-http.log || true

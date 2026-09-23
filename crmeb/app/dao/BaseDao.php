@@ -537,6 +537,9 @@ abstract class BaseDao
      */
     public function decStockIncSales(array $where, int $num, string $stock = 'stock', string $sales = 'sales')
     {
+        if ($num < 1) {
+            return false;
+        }
         $isQuota = false;
         if (isset($where['type']) && $where['type']) {
             $isQuota = true;
@@ -544,14 +547,12 @@ abstract class BaseDao
                 unset($where['type']);
             }
         }
-        $field = $isQuota ? 'stock,quota' : 'stock';
-        $product = $this->getModel()->where($where)->field($field)->find();
-        if ($product) {
-            return $this->getModel()->where($where)->when($isQuota, function ($query) use ($num) {
-                $query->dec('quota', $num);
+        // The availability check must be part of the UPDATE: a preceding read
+        // can become stale while another buyer reserves the same last unit.
+        return $this->getModel()->where($where)->where($stock, '>=', $num)
+            ->when($isQuota, function ($query) use ($num) {
+                $query->where('quota', '>=', $num)->dec('quota', $num);
             })->dec($stock, $num)->inc($sales, $num)->update();
-        }
-        return false;
     }
 
     /**

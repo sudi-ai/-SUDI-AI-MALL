@@ -14,6 +14,7 @@ namespace app\services\pay;
 use app\services\order\OtherOrderServices;
 use app\services\order\StoreOrderSuccessServices;
 use app\services\user\UserRechargeServices;
+use think\facade\Db;
 
 /**
  * 支付成功回调 所有的异步通知回调都会走下面的三个方法,不在取分微信/支付宝支付回调
@@ -36,17 +37,24 @@ class PayNotifyServices
         try {
             /** @var StoreOrderSuccessServices $services */
             $services = app()->make(StoreOrderSuccessServices::class);
-            $orderInfo = $services->getOne(['order_id' => $order_id]);
-            if (!$orderInfo) return false;
-            if ($orderInfo->paid) return true;
-            // 支付宝异步通知必须把支付宝实际支付金额与商城数据库应付金额精确到分核对。
-            if ($payType === PayServices::ALIAPY_PAY) {
-                if ($paidAmount === null || $paidAmount === '' || bccomp((string)$orderInfo->pay_price, (string)$paidAmount, 2) !== 0) {
-                    return false;
+            return Db::transaction(function () use ($services, $order_id, $trade_no, $payType, $paidAmount) {
+                // Serialize duplicate callbacks before checking paid or writing
+                // payment events and the capital ledger.
+                $orderInfo = Db::name('store_order')->where('order_id', $order_id)->lock(true)->find();
+                if (!$orderInfo) return false;
+                if ($payType === PayServices::ALIAPY_PAY) {
+                    if ($paidAmount === null || !preg_match('/^\d+(?:\.\d{1,2})?$/D', (string)$paidAmount)
+                        || bccomp((string)$orderInfo['pay_price'], (string)$paidAmount, 2) !== 0) {
+                        return false;
+                    }
                 }
-            }
-            return $services->paySuccess($orderInfo->toArray(), $payType, ['trade_no' => $trade_no]);
-        } catch (\Exception $e) {
+                if ($orderInfo['paid']) return true;
+                if (!$services->paySuccess($orderInfo, $payType, ['trade_no' => $trade_no])) {
+                    throw new \RuntimeException('Payment processing failed');
+                }
+                return true;
+            });
+        } catch (\Throwable $e) {
             return false;
         }
     }
