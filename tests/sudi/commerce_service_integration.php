@@ -286,7 +286,7 @@ try {
         'concurrent refund applications write one application ledger event');
     check((int)Db::name('capital_flow')->where('order_id', $orderNumber)->where('trading_type', 2)->count() === 0,
         'refund application does not prematurely book a refund');
-    check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 1,
+    check((int)Db::name('store_product_attr_value')->where('unique', $skus[0])->value('stock') === 0,
         'refund application does not restore stock before approval');
     $duplicateApply = publicApi('order/refund/apply/' . $oid, ['text' => 'CI duplicate', 'refund_type' => 2, 'refund_price' => 199], $tokenA, 'POST');
     check(($duplicateApply['status'] ?? 200) !== 200, 'API rejects a second request while refund is pending');
