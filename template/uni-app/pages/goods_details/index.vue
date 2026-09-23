@@ -77,6 +77,15 @@
             @openModal="openModal"
             @goActivity="goActivity"
           ></PageDesign>
+          <view class="sudi-ai-tools" v-if="storeInfo && storeInfo.id">
+            <view class="sudi-ai-tools-title">苏迪 AI 购前助手</view>
+            <view class="sudi-ai-tools-actions">
+              <button class="sudi-ai-tool" @click="openAiSize">AI 尺码</button>
+              <button class="sudi-ai-tool" @click="openAiOutfit">AI 搭配</button>
+              <button class="sudi-ai-tool" @click="openAiCustomer">问 AI 客服</button>
+            </view>
+          </view>
+          <view class="sudi-detail-bottom-space"></view>
         </view>
         <view class="uni-p-b-98"></view>
       </view>
@@ -214,14 +223,6 @@
           :src="imgHost + '/statics/images/share-info.png'"
           @click="H5ShareBox = false"
         ></image>
-      </view>
-      <view class="sudi-ai-tools" v-if="storeInfo && storeInfo.id">
-        <view class="sudi-ai-tools-title">苏迪 AI 购前助手</view>
-        <view class="sudi-ai-tools-actions">
-          <button class="sudi-ai-tool" @click="openAiSize">AI 尺码</button>
-          <button class="sudi-ai-tool" @click="openAiOutfit">AI 搭配</button>
-          <button class="sudi-ai-tool" @click="openAiCustomer">问 AI 客服</button>
-        </view>
       </view>
       <kefuIcon
         :ids="parseInt(id)"
@@ -1952,7 +1953,8 @@ action-sheet-item {
 </style>
 
 <style scoped>
-.sudi-ai-tools{margin:20rpx;margin-bottom:calc(160rpx + env(safe-area-inset-bottom));padding:24rpx;background:#fff;border-radius:18rpx}
+.sudi-ai-tools{margin:20rpx;padding:24rpx;background:#fff;border-radius:18rpx}
+.sudi-detail-bottom-space{height:160rpx;height:calc(160rpx + env(safe-area-inset-bottom));}
 .sudi-ai-tools-title{font-size:28rpx;font-weight:700;color:#222;margin-bottom:18rpx}
 .sudi-ai-tools-actions{display:flex;gap:14rpx}
 .sudi-ai-tool{flex:1;margin:0;padding:0;height:70rpx;line-height:70rpx;border-radius:999rpx;background:#fff0f4;color:#ff3366;font-size:24rpx}
