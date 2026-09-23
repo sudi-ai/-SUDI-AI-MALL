@@ -175,7 +175,7 @@ class StoreOrderRefundServices extends BaseServices
             }
 
             //回退库存
-            if ($splitOrderInfo['status'] == 0) {
+            if ($splitOrderInfo['status'] == 0 || (int)$lockedRefund['refund_type'] === 5) {
                 /** @var StoreOrderStatusServices $services */
                 $services = app()->make(StoreOrderStatusServices::class);
                 if (!$services->count(['oid' => $splitOrderInfo['id'], 'change_type' => 'refund_price'])) {

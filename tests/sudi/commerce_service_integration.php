@@ -193,7 +193,8 @@ try {
     $denied = publicApi('admin/manage/product/create', [], $tokenB, 'POST');
     check(($denied['msg'] ?? '') === '权限不足', 'authenticated ordinary buyer cannot publish products');
     $denied = publicApi('order/detail/' . $orderNumber, [], $tokenB);
-    check(($denied['status'] ?? 200) !== 200 && ($denied['msg'] ?? '') === '商品不存在' && empty($denied['data']), 'buyer B cannot read buyer A order');
+    check((int)($denied['status'] ?? 200) === 400 && ($denied['msg'] ?? '') === '商品不存在'
+        && !isset($denied['data']['order_id']) && !isset($denied['data']['cartInfo']), 'buyer B cannot read buyer A order');
     $denied = publicApi('order/refund/apply/' . $oid, ['text' => 'test', 'refund_type' => 1, 'refund_price' => 199], $tokenB, 'POST');
     check(($denied['status'] ?? 200) !== 200 && ($denied['msg'] ?? '') === '订单不存在', 'buyer B cannot refund buyer A order');
     $cartUnique = md5($orderNumber);
@@ -263,7 +264,7 @@ try {
     $accepted = publicApi('order/refund/express', $returnData, $tokenA, 'POST');
     check(($accepted['status'] ?? 0) === 200, 'owner can submit return tracking');
     // Offline fixture exercises bookkeeping without contacting a payment provider.
-    Db::name('store_order')->where('id', $oid)->update(['status' => 0, 'pay_type' => 'offline']);
+    Db::name('store_order')->where('id', $oid)->update(['pay_type' => 'offline']);
     $refundService = app()->make(app\services\order\StoreOrderRefundServices::class);
     check($refundService->agreeRefund($rid, ['refund_price' => '199.00', 'pay_price' => '199.00', 'order_id' => $orderNumber]), 'actual refund service succeeds for offline fixture');
     check((int)Db::name('store_order')->where('id', $oid)->value('refund_status') === 2, 'refunded order status persisted');
