@@ -138,7 +138,8 @@ test('selected SKU goes from detail to cart and checkout with the saved address'
   const item = page.locator('.list .item').filter({hasText: fixture.productName}).first();
   await expect(item).toContainText('灰,L');
   await expect(item.locator('.money')).toContainText('204');
-  await item.locator('uni-checkbox').click();
+  if (!await item.locator('.uni-checkbox-input-checked').count()) await item.locator('uni-checkbox').click();
+  await expect(page.getByText('全选(1)', {exact: true})).toBeVisible();
   const confirmation = page.waitForResponse(r => r.url().includes('/api/order/confirm'));
   await page.getByText('立即下单', {exact: true}).click();
   expect((await (await confirmation).json()).status).toBe(200);

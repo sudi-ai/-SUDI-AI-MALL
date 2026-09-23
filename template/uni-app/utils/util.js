@@ -606,15 +606,19 @@ export default {
       sourceType: sourceType, // 可以指定来源是相册还是相机，默认二者都有
       success: function (res) {
         //启动上传等待中...
-        let imgSrc;
+        let imageIndex = 0;
+        // Process selected images in order; the compression canvas is shared.
+        function nextImage() {
+          if (imageIndex >= res.tempFilePaths.length) return;
+          const currentIndex = imageIndex++;
         uni.getImageInfo({
-          src: res.tempFilePaths[0],
+          src: res.tempFilePaths[currentIndex],
           success(ress) {
             uni.showLoading({
               title: i18n.t(`图片上传中`),
             });
-            if (res.tempFiles[0].size <= 2097152) {
-              uploadImg(ress.path);
+            if (res.tempFiles[currentIndex].size <= 2097152) {
+              uploadImg(ress.path, nextImage);
               return;
             }
             // uploadImg(canvasPath.tempFilePath)
@@ -651,17 +655,31 @@ export default {
                   destHeight: canvasHeight,
                   quality: 0.7,
                   success: function (canvasPath) {
-                    uploadImg(canvasPath.tempFilePath);
+                    uploadImg(canvasPath.tempFilePath, nextImage);
+                  },
+                  fail: function (error) {
+                    uni.hideLoading();
+                    errorCallback && errorCallback(error);
+                    that.Tips({title: i18n.t(`上传图片失败`)});
+                    nextImage();
                   },
                 });
               });
             }, 200);
           },
+          fail: function (error) {
+            uni.hideLoading();
+            errorCallback && errorCallback(error);
+            that.Tips({title: i18n.t(`无法获取图片信息`)});
+            nextImage();
+          },
         });
+        }
+        nextImage();
       },
     });
 
-    function uploadImg(filePath) {
+    function uploadImg(filePath, complete) {
       uni.uploadFile({
         url: HTTP_REQUEST_URL + "/api/" + uploadUrl,
         filePath,
@@ -700,6 +718,7 @@ export default {
             title: i18n.t(`上传图片失败`),
           });
         },
+        complete,
       });
     }
   },
