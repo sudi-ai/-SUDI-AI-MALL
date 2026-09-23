@@ -292,8 +292,25 @@ try {
     }
     $denied = publicApi('order/refund/express', $returnData, $tokenA, 'POST');
     check(($denied['msg'] ?? '') === '当前状态不能提交退货物流', 'completed refund cannot be reopened by return tracking');
+    if (getenv('SUDI_BROWSER_FIXTURE') === '1') {
+        // These records exist only in the already-validated disposable CI database.
+        Db::name('store_product')->where('id', '<>', $pid)->update(['is_show' => 0]);
+        Db::name('store_service')->insert(['uid' => $uid, 'status' => 1, 'customer' => 1, 'nickname' => 'CI merchant']);
+        foreach (['test.jpg', 'test2.jpg'] as $index => $file) {
+            $img = imagecreatetruecolor(600, 800);
+            imagefill($img, 0, 0, imagecolorallocate($img, 180 + $index * 30, 190, 210));
+            imagestring($img, 5, 210, 390, 'SUDI TEST DRESS', imagecolorallocate($img, 30, 30, 50));
+            imagepng($img, __DIR__ . '/../../crmeb/public/' . $file);
+            imagedestroy($img);
+        }
+        file_put_contents('/tmp/sudi-browser-fixture.json', json_encode([
+            'productId' => $pid, 'productName' => $orderNumber, 'uid' => $uid, 'token' => $tokenA,
+            'skus' => $skus, 'orderNumber' => $createdNumber,
+        ]));
+    }
     echo "SERVICE INTEGRATION PACK PASSED (not full browser/end-to-end acceptance)\n";
 } finally {
+    if (getenv('SUDI_BROWSER_FIXTURE') !== '1' || !is_file('/tmp/sudi-browser-fixture.json')) {
     if ($oid) {
         Db::name('store_product_reply')->where('oid', $oid)->delete();
         Db::name('store_order_cart_info')->where('oid', $oid)->delete();
@@ -317,5 +334,6 @@ try {
         Db::name('store_order_status')->where('oid', $createdOid)->delete();
         Db::name('store_order_cart_info')->where('oid', $createdOid)->delete();
         Db::name('store_order')->where('id', $createdOid)->delete();
+    }
     }
 }
