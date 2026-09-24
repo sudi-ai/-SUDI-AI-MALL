@@ -197,6 +197,23 @@ $grid-gap: 10px;
 	width: calc((100vw - 2 * #{$page-padding} - #{$grid-gap}) / 2);
 	padding-bottom: $grid-gap;
 }
+
+/* H5 desktop: keep mobile waterfall intact, but prevent cards stretching to full monitor width. */
+@media screen and (min-width: 769px) {
+	.wf-page {
+		grid-template-columns: 1fr 1fr;
+		gap: 18px;
+	}
+	.wf-item {
+		width: 100%;
+		max-width: none;
+	}
+}
+@media screen and (min-width: 1200px) {
+	.wf-page {
+		gap: 22px;
+	}
+}
 .wf-page1 .wf-item {
 	margin-top: 20rpx;
 	background-color: #fff;
