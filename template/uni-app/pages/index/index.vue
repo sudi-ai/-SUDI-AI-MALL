@@ -1082,4 +1082,34 @@ export default {
 .sudi-section-head{display:flex;align-items:baseline;gap:14rpx;padding:10rpx 4rpx 24rpx}
 .sudi-section-title{font-size:34rpx;font-weight:600;color:#222}
 .sudi-section-desc{font-size:20rpx;letter-spacing:2rpx;color:#999}
+
+/* SUDI H5 responsive shell. Mobile remains unchanged. */
+@media screen and (min-width: 769px) {
+  .page { background:#f5f5f5; }
+  .page ::v-deep .page-design,
+  .page ::v-deep .index,
+  .sudi-new-products,
+  .sort-product,
+  .site-config {
+    max-width:1180px;
+    margin-left:auto !important;
+    margin-right:auto !important;
+    box-sizing:border-box;
+  }
+  .sudi-new-products { padding:28px 24px 48px; }
+  .sudi-section-head { padding:4px 0 22px; }
+  .sudi-section-title { font-size:24px; }
+  .sudi-section-desc { font-size:12px; }
+  .sudi-ai-entry { right:32px; bottom:32px; width:76px; height:76px; }
+  .sudi-ai-entry-title { font-size:15px; }
+  .sudi-ai-entry-desc { display:none; }
+}
+@media screen and (min-width: 1200px) {
+  .page ::v-deep .page-design,
+  .page ::v-deep .index,
+  .sudi-new-products,
+  .sort-product,
+  .site-config { max-width:1320px; }
+  .sudi-new-products { padding-left:30px; padding-right:30px; }
+}
 </style>
