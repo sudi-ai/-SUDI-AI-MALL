@@ -328,4 +328,20 @@ export default {
 .page-footer3.float .foot-item:first-child::before {
   display: none;
 }
+
+/* Desktop H5: constrain the mobile tab bar instead of stretching across ultra-wide screens. */
+@media screen and (min-width: 769px) {
+  .page-footer-wrapper {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .page-footer {
+    left: 50%;
+    right: auto;
+    width: 720px;
+    transform: translateX(-50%);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -4px 18px rgba(0,0,0,.06);
+  }
+}
 </style>
