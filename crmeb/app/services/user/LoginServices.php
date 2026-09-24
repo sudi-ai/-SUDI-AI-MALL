@@ -54,10 +54,21 @@ class LoginServices extends BaseServices
     {
         $user = $this->dao->getOne(['account|phone' => $account, 'is_del' => 0]);
         if ($user) {
-            if ($user->pwd !== md5((string)$password))
+            $storedPassword = (string)$user->pwd;
+            $legacyMd5 = preg_match('/^[a-f0-9]{32}$/i', $storedPassword) === 1;
+            $passwordOk = $legacyMd5
+                ? hash_equals(strtolower($storedPassword), md5((string)$password))
+                : password_verify((string)$password, $storedPassword);
+            if (!$passwordOk) {
                 throw new ApiException('账号或密码错误');
-            if ($user->pwd === md5('123456'))
+            }
+            if ($legacyMd5 && $storedPassword === md5('123456')) {
                 throw new ApiException('请修改您的初始密码，再尝试登录');
+            }
+            // 老用户首次成功登录后无感升级到 PHP 安全密码哈希。
+            if ($legacyMd5 || password_needs_rehash($storedPassword, PASSWORD_DEFAULT)) {
+                $this->dao->update((int)$user['uid'], ['pwd' => password_hash((string)$password, PASSWORD_DEFAULT)], 'uid');
+            }
         } else {
             throw new ApiException('账号或密码错误');
         }
@@ -231,7 +242,7 @@ class LoginServices extends BaseServices
         $userServices = app()->make(UserServices::class);
         $phone = $account;
         $data['account'] = $account;
-        $data['pwd'] = md5((string)$password);
+        $data['pwd'] = password_hash((string)$password, PASSWORD_DEFAULT);
         $data['phone'] = $phone;
         if ($spread) {
             $data['spread_uid'] = $spread;
@@ -306,7 +317,7 @@ class LoginServices extends BaseServices
         if (!$user) {
             throw new ApiException('用户不存在');
         }
-        if (!$this->dao->update($user['uid'], ['pwd' => md5((string)$password)], 'uid')) {
+        if (!$this->dao->update($user['uid'], ['pwd' => password_hash((string)$password, PASSWORD_DEFAULT)], 'uid')) {
             throw new ApiException('修改密码失败');
         }
         return true;
