@@ -181,4 +181,8 @@ try {
 }
 identityCheck(identityApi('remote_register', [], '', 'GET')['status'] !== 200, 'unsigned remote tokens cannot log in');
 identityRaceWechat();
+// Disposable browser fixture: this does not exercise real SMS delivery.
+$browserPhone = '13900000109';
+CacheService::set('code_' . $browserPhone, '739241', 1200);
+file_put_contents('/tmp/sudi-sms-browser.json', json_encode(['phone' => $browserPhone, 'code' => '739241']));
 echo "UNIFIED IDENTITY INTEGRATION PASSED\n";

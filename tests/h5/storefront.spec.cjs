@@ -30,6 +30,36 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(page.getByText('苏迪 AI 购前助手')).toBeVisible();
 });
 
+test('mobile SMS login creates an account and returns to shopping', async ({browser}) => {
+  // A disposable, seeded OTP tests the real login API, not Aliyun SMS delivery.
+  const sms = JSON.parse(fs.readFileSync('/tmp/sudi-sms-browser.json', 'utf8'));
+  const context = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
+  const page = await context.newPage();
+  try {
+    await page.addInitScript(back => {
+      localStorage.setItem('login_back_url', JSON.stringify({type: 'string', data: back}));
+      localStorage.setItem('UNI-APP-CRMEB:TAG', JSON.stringify({type: 'object', data: [{key: 'login_back_url', expire: 0}]}));
+    }, '/pages/goods_details/index?id=' + fixture.productId);
+    await page.goto('http://127.0.0.1:8000/pages/users/login/index');
+    await expect(page.getByText('未注册手机号验证通过后将自动创建账号', {exact: true})).toBeVisible();
+    await expect(page.locator('input[type=password]')).toHaveCount(0);
+    await expect(page.getByText('邮箱注册', {exact: true})).toHaveCount(0);
+    await field(page, '输入手机号码').fill(sms.phone);
+    await field(page, '填写验证码').fill(sms.code);
+    await expect(field(page, '填写验证码')).toHaveAttribute('autocomplete', 'one-time-code');
+    await page.locator('.protocol uni-checkbox').click();
+    await page.screenshot({path: 'test-results/mobile-code-login.png', fullPage: true});
+    const login = page.waitForResponse(r => r.url().includes('/api/login/mobile'));
+    await page.getByText('验证并登录', {exact: true}).click();
+    expect((await (await login).json()).status).toBe(200);
+    await expect(page).toHaveURL(/goods_details/);
+    await expect(page.getByText(fixture.productName).first()).toBeVisible();
+    const replay = await context.request.post('http://127.0.0.1:8000/api/login/mobile', {data: {phone: sms.phone, captcha: sms.code}});
+    expect((await replay.json()).status).not.toBe(200);
+    await page.screenshot({path: 'test-results/mobile-login-shopping.png', fullPage: true});
+  } finally { await context.close(); }
+});
+
 test('buyer signs in through the password login page', async ({browser}) => {
   const context = await browser.newContext({viewport: {width: 390, height: 844}});
   const page = await context.newPage();

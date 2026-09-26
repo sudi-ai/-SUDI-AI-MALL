@@ -30,13 +30,13 @@
 				<view class="item">
 					<view class="acea-row row-middle">
 						<image src="../static/phone_1.png" style="width: 24rpx; height: 34rpx"></image>
-						<input type="text" :placeholder="$t(`输入手机号码`)" v-model="account" :maxlength="11" />
+						<input type="number" inputmode="tel" :placeholder="$t(`输入手机号码`)" v-model.trim="account" :maxlength="11" />
 					</view>
 				</view>
 				<view class="item">
 					<view class="acea-row row-middle">
 						<image src="../static/code_2.png" style="width: 28rpx; height: 32rpx"></image>
-						<input type="text" :placeholder="$t(`填写验证码`)" :maxlength="6" class="codeIput" v-model="captcha" />
+						<input type="number" inputmode="numeric" text-content-type="one-time-code" :placeholder="$t(`填写验证码`)" :maxlength="6" class="codeIput" v-model.trim="captcha" />
 						<button class="code" :disabled="disabled" :class="disabled === true ? 'on' : ''" @click="code">
 							{{ text }}
 						</button>
@@ -50,13 +50,13 @@
 					</view>
 				</view> -->
 			</view>
-			<view class="logon" @click="loginMobile" v-if="current !== 0">{{ $t(`登录`) }}</view>
+			<view class="phone-register-hint" v-if="current !== 0 && !appLoginStatus && !appleLoginStatus">未注册手机号验证通过后将自动创建账号</view>
+			<view class="logon" @click="loginMobile" v-if="current !== 0">{{ $t(`验证并登录`) }}</view>
 			<view class="logon" @click="submit" v-if="current === 0">{{ $t(`登录`) }}</view>
 			<!-- #ifndef APP-PLUS -->
 			<view class="tips">
-				<view v-if="current == 0" @click="current = 1">{{ $t(`快速登录`) }}</view>
+				<view v-if="current == 0" @click="current = 1">{{ $t(`手机验证码登录`) }}</view>
 				<view v-if="current == 1" @click="current = 0">{{ $t(`账号登录`) }}</view>
-				<view @click="openEmailRegister">邮箱注册</view>
 			</view>
 			<!-- #endif -->
 			<!-- #ifdef APP-PLUS -->
@@ -177,9 +177,6 @@ export default {
 		this.getLogoImage();
 	},
 	methods: {
-		openEmailRegister() {
-			uni.navigateTo({ url: '/pages/users/email_auth/index' });
-		},
 		ChangeIsDefault(e) {
 			this.$set(this, 'protocol', !this.protocol);
 		},
@@ -438,7 +435,7 @@ export default {
 				return that.$util.Tips({
 					title: that.$t(`请填写验证码`)
 				});
-			if (!/^[\w\d]+$/i.test(that.captcha))
+			if (!/^\d{6}$/.test(that.captcha))
 				return that.$util.Tips({
 					title: that.$t(`请输入正确的验证码`)
 				});
@@ -468,7 +465,7 @@ export default {
 						});
 						let backUrl = that.$Cache.get(BACK_URL) || '/pages/index/index';
 						that.$Cache.clear(BACK_URL);
-						getUserInfo().then((res) => {
+						return getUserInfo().then((res) => {
 							this.keyLock = true;
 							that.$store.commit('SETUID', res.data.uid);
 							if (backUrl.indexOf('/pages/users/login/index') !== -1) {
@@ -732,6 +729,13 @@ page {
 
 .login-wrapper {
 	padding: 30rpx;
+
+	.phone-register-hint {
+		margin: 24rpx 12rpx;
+		color: #777;
+		font-size: 24rpx;
+		line-height: 1.6;
+	}
 
 	.shading {
 		display: flex;

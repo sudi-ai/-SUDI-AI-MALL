@@ -239,13 +239,14 @@ class LoginServices extends BaseServices
         if ($this->dao->getOne(['account' => $phone, 'is_del' => 0]) && $type == 'register') {
             throw new ApiException('手机号已注册');
         }
-        $code = rand(100000, 999999);
+        $code = random_int(100000, 999999);
+        $codes = app()->make(SmsCodeServices::class);
+        $time = $codes->expiryMinutes($time);
         $data['code'] = $code;
         $data['time'] = $time;
-        $res = $services->send(true, $phone, $data, 'verify_code');
-        if ($res !== true)
-            throw new ApiException('短信平台验证码发送失败');
-        return $code;
+        return $codes->issue((string)$phone, (string)request()->ip(), $code, $time, function () use ($services, $phone, $data) {
+            return $services->send(true, $phone, $data, 'verify_code');
+        });
     }
 
     /**
