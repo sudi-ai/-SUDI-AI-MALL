@@ -1,7 +1,8 @@
 <?php
 $portFile = $argv[1];
 $captureFile = $argv[2];
-$server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+$listenPort = (int)($argv[3] ?? 0);
+$server = stream_socket_server('tcp://127.0.0.1:' . $listenPort, $errno, $error);
 if (!$server) exit(2);
 $address = stream_socket_get_name($server, false);
 file_put_contents($portFile, substr(strrchr($address, ':'), 1));

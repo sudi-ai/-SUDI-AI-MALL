@@ -1,27 +1,29 @@
 <template>
 	<view class="email-auth">
-		<view class="title">邮箱注册</view>
+		<view class="title">{{ binding ? '绑定登录邮箱' : '邮箱注册' }}</view>
+		<view v-if="binding">绑定后保留当前账号、订单和余额，邮箱与手机号共用下方设置的密码。</view>
 		<view class="field"><input v-model.trim="email" type="text" maxlength="100" placeholder="请输入邮箱地址" /></view>
 		<view class="field code-row">
 			<input v-model.trim="captcha" type="number" maxlength="6" placeholder="邮箱验证码" />
 			<button :disabled="countdown > 0 || sending" @click="sendCode">{{ countdown ? countdown + '秒后重试' : '获取验证码' }}</button>
 		</view>
 		<view class="field"><input v-model="password" password maxlength="72" placeholder="设置密码（8位以上）" /></view>
-		<checkbox-group class="protocol" @change="protocol = !protocol">
+		<checkbox-group v-if="!binding" class="protocol" @change="protocol = !protocol">
 			<checkbox :checked="protocol" />我已阅读并同意用户协议与隐私协议
 		</checkbox-group>
-		<button class="submit" :disabled="submitting" @click="submit">注册并登录</button>
+		<button class="submit" :disabled="submitting" @click="submit">{{ binding ? '验证并绑定' : '注册并登录' }}</button>
 	</view>
 </template>
 
 <script>
-import { sendEmailRegisterCode, registerByEmail, loginH5, getUserInfo } from '@/api/user';
+import { sendEmailRegisterCode, registerByEmail, sendEmailBindCode, bindEmail, loginH5, getUserInfo } from '@/api/user';
 const BACK_URL = 'login_back_url';
 
 export default {
 	data() {
-		return { email: '', captcha: '', password: '', protocol: false, sending: false, submitting: false, countdown: 0, timer: null };
+		return { binding: false, email: '', captcha: '', password: '', protocol: false, sending: false, submitting: false, countdown: 0, timer: null };
 	},
+	onLoad(options) { this.binding = options.mode === 'bind'; if (this.binding) uni.setNavigationBarTitle({ title: '绑定登录邮箱' }); },
 	onUnload() { if (this.timer) clearInterval(this.timer); },
 	methods: {
 		validEmail() { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email) && this.email.length <= 100; },
@@ -29,7 +31,7 @@ export default {
 			if (!this.validEmail()) return this.$util.Tips({ title: '请输入正确的邮箱地址' });
 			this.sending = true;
 			try {
-				await sendEmailRegisterCode({ email: this.email });
+				await (this.binding ? sendEmailBindCode : sendEmailRegisterCode)({ email: this.email });
 				this.countdown = 60;
 				this.timer = setInterval(() => { if (this.countdown > 0) this.countdown--; else clearInterval(this.timer); }, 1000);
 				this.$util.Tips({ title: '如果该邮箱可注册，验证码已发送' });
@@ -37,12 +39,17 @@ export default {
 			finally { this.sending = false; }
 		},
 		async submit() {
-			if (!this.protocol) return this.$util.Tips({ title: '请先阅读并同意用户协议与隐私协议' });
+			if (!this.binding && !this.protocol) return this.$util.Tips({ title: '请先阅读并同意用户协议与隐私协议' });
 			if (!this.validEmail()) return this.$util.Tips({ title: '请输入正确的邮箱地址' });
 			if (!/^\d{6}$/.test(this.captcha)) return this.$util.Tips({ title: '请输入6位邮箱验证码' });
 			if (this.password.length < 8 || this.password.length > 72) return this.$util.Tips({ title: '密码长度须为8到72位' });
 			this.submitting = true;
 			try {
+				if (this.binding) {
+					await bindEmail({ email: this.email, captcha: this.captcha, password: this.password });
+					uni.navigateBack();
+					return;
+				}
 				await registerByEmail({ email: this.email, captcha: this.captcha, password: this.password, spread: this.$Cache.get('spread') });
 				const { data } = await loginH5({ account: this.email, password: this.password, spread: this.$Cache.get('spread'), agent_id: this.$Cache.get('agent_id') || 0 });
 				this.$store.commit('LOGIN', { token: data.token, time: data.expires_time - this.$Cache.time() });

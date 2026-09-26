@@ -8,6 +8,43 @@ use crmeb\services\CacheService;
 
 class EmailAuthController
 {
+    public function identities(Request $request)
+    {
+        $uid = (int)$request->uid();
+        $user = \think\facade\Db::name('user')->where('uid', $uid)->find();
+        return app('json')->success([
+            'uid' => $uid, 'email_bound' => !empty($user['email']),
+            'phone_bound' => !empty($user['phone']),
+            'wechat_bound' => (bool)\think\facade\Db::name('wechat_user')->where('uid', $uid)->where('is_del', 0)->count(),
+        ]);
+    }
+
+    public function bindVerify(Request $request, EmailVerificationServices $verification, LoginServices $login)
+    {
+        try {
+            $verification->sendRegistrationCode((string)$request->post('email', ''), $login, 'bind', (int)$request->uid());
+            return app('json')->success('验证码已发送');
+        } catch (\Throwable $e) {
+            return app('json')->fail($e instanceof \InvalidArgumentException || $e->getMessage() === '邮箱已注册'
+                ? $e->getMessage() : '邮件发送失败或操作频繁，请稍后重试');
+        }
+    }
+
+    public function bind(Request $request, EmailVerificationServices $verification, LoginServices $login)
+    {
+        [$email, $captcha, $password] = $request->postMore([['email', ''], ['captcha', ''], ['password', '']], true);
+        $email = strtolower(trim((string)$email));
+        $uid = (int)$request->uid();
+        if (strlen($email) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL)) return app('json')->fail('邮箱格式不正确');
+        if (!preg_match('/^\d{6}$/', (string)$captcha)) return app('json')->fail('验证码必须为6位数字');
+        if (strlen((string)$password) < 8 || strlen((string)$password) > 72 || trim((string)$password) !== (string)$password
+            || in_array(strtolower((string)$password), ['12345678', 'password', 'qwerty123'], true)) return app('json')->fail('请设置8到72位安全密码');
+        if (!$verification->verifyRegistrationCode($email, (string)$captcha, 'bind', $uid)) return app('json')->fail('验证码错误或已过期');
+        $login->bindEmail($uid, $email, (string)$password);
+        $verification->clearRegistrationCode($email, 'bind', $uid);
+        return app('json')->success('绑定成功，邮箱与手机号共用账号密码');
+    }
+
     public function verify(Request $request, EmailVerificationServices $verification, LoginServices $login)
     {
         [$email, $type] = $request->postMore([['email', ''], ['type', 'register']], true);

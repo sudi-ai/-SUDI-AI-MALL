@@ -22,6 +22,7 @@ use crmeb\services\CacheService;
 use crmeb\services\HttpService;
 use Firebase\JWT\JWT;
 use think\facade\Config;
+use think\facade\Db;
 
 /**
  *
@@ -52,7 +53,9 @@ class LoginServices extends BaseServices
      */
     public function login($account, $password, $spread, $agent_id)
     {
-        $user = $this->dao->getOne(['account|phone|email' => $account, 'is_del' => 0]);
+        $account = trim((string)$account);
+        if (filter_var($account, FILTER_VALIDATE_EMAIL)) $account = strtolower($account);
+        $user = $this->findLoginUser($account);
         if ($user) {
             $storedPassword = (string)$user->pwd;
             $legacyMd5 = preg_match('/^[a-f0-9]{32}$/i', $storedPassword) === 1;
@@ -62,7 +65,7 @@ class LoginServices extends BaseServices
             if (!$passwordOk) {
                 throw new ApiException('账号或密码错误');
             }
-            if ($legacyMd5 && $storedPassword === md5('123456')) {
+            if ((string)$password === '123456') {
                 throw new ApiException('请修改您的初始密码，再尝试登录');
             }
             // 老用户首次成功登录后无感升级到 PHP 安全密码哈希。
@@ -91,6 +94,24 @@ class LoginServices extends BaseServices
     public function emailExists(string $email): bool
     {
         return (bool)$this->dao->getOne(['account|email' => strtolower(trim($email)), 'is_del' => 0]);
+    }
+
+    private function findLoginUser(string $identity)
+    {
+        $where = ['account|phone|email' => $identity, 'is_del' => 0];
+        if ($this->dao->count($where) > 1) throw new ApiException('账号存在绑定冲突，请联系客服处理');
+        return $this->dao->getOne($where);
+    }
+
+    public function bindEmail(int $uid, string $email, string $password): void
+    {
+        Db::transaction(function () use ($uid, $email, $password) {
+            $user = Db::name('user')->where('uid', $uid)->where('is_del', 0)->lock(true)->find();
+            if (!$user || !$user['status']) throw new ApiException('用户不存在或已禁用');
+            if (!empty($user['email'])) throw new ApiException('账号已绑定邮箱');
+            if ($this->emailExists($email)) throw new ApiException('邮箱已注册，请登录原账号');
+            Db::name('user')->where('uid', $uid)->update(['email' => $email, 'pwd' => password_hash($password, PASSWORD_DEFAULT)]);
+        });
     }
 
     /**
@@ -387,9 +408,9 @@ class LoginServices extends BaseServices
     public function mobile($phone, $spread, string $user_type = 'h5', $agent_id = 0)
     {
         //数据库查询
-        $user = $this->dao->getOne(['account|phone' => $phone, 'is_del' => 0]);
+        $user = $this->findLoginUser((string)$phone);
         if (!$user) {
-            $user = $this->register($phone, '123456', $spread, $user_type);
+            $user = $this->register($phone, bin2hex(random_bytes(32)), $spread, $user_type);
             if (!$user) {
                 throw new ApiException('用户登录失败,无法生成新用户,请稍后再试');
             }
@@ -424,15 +445,9 @@ class LoginServices extends BaseServices
      */
     public function switchAccount($user, $from)
     {
-        if ($from === 'h5') {
-            $where = [['phone', '=', $user['phone']], ['user_type', '<>', 'h5'], ['is_del', '=', 0]];
-            $login_type = 'wechat';
-        } else {
-            //数据库查询
-            $where = [['account|phone', '=', $user['phone']], ['user_type', '=', 'h5'], ['is_del', '=', 0]];
-            $login_type = 'h5';
-        }
-        $switch_user = $this->dao->getOne($where);
+        // Changing login presentation must never mint a token for another UID.
+        $login_type = $from === 'h5' ? 'wechat' : 'h5';
+        $switch_user = $this->dao->getOne(['uid' => (int)$user['uid'], 'is_del' => 0]);
         if (!$switch_user) {
             return app('json')->fail('用户不存在,无法切换');
         }
@@ -497,27 +512,14 @@ class LoginServices extends BaseServices
      */
     public function userBindindPhone(int $uid, $phone, $step)
     {
-        $userInfo = $this->dao->get($uid);
-        if (!$userInfo) {
-            throw new ApiException('用户不存在');
-        }
-        if ($this->dao->getOne([['phone', '=', $phone], ['user_type', '<>', 'h5'], ['is_del', '=', 0]])) {
-            throw new ApiException('此手机已经绑定，无法多次绑定');
-        }
-        if ($userInfo->phone) {
-            throw new ApiException('您的账号已经绑定过手机号码');
-        }
-        $data = [];
-        if ($this->dao->getOne(['account' => $phone, 'phone' => $phone, 'user_type' => 'h5', 'is_del' => 0])) {
-            if (!$step) return ['msg' => 'H5已有账号是否绑定此账号上', 'data' => ['is_bind' => 1]];
-        } else {
-            $data['account'] = $phone;
-        }
-        $data['phone'] = $phone;
-        if ($this->dao->update($userInfo['uid'], $data, 'uid') || $userInfo->phone == $phone)
+        return Db::transaction(function () use ($uid, $phone) {
+            $user = Db::name('user')->where('uid', $uid)->where('is_del', 0)->lock(true)->find();
+            if (!$user || !$user['status']) throw new ApiException('用户不存在或已禁用');
+            if (!empty($user['phone'])) throw new ApiException('您的账号已经绑定过手机号码');
+            if ($this->findLoginUser((string)$phone)) throw new ApiException('手机号已绑定其他账号，请登录原账号');
+            Db::name('user')->where('uid', $uid)->update(['phone' => $phone]);
             return ['msg' => '绑定成功', 'data' => []];
-        else
-            throw new ApiException('绑定失败');
+        });
     }
 
     /**
@@ -538,7 +540,7 @@ class LoginServices extends BaseServices
         if ($userInfo->phone == $phone) {
             throw new ApiException('新手机号和原手机号相同，无需修改');
         }
-        if ($this->dao->getOne([['phone', '=', $phone], ['is_del', '=', 0]])) {
+        if ($this->findLoginUser((string)$phone)) {
             throw new ApiException('此手机已经注册');
         }
         $data = [];

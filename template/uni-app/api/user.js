@@ -85,6 +85,10 @@ export function registerByEmail(data) {
 	return request.post("email/register", data, { noAuth: true });
 }
 
+export function sendEmailBindCode(data) { return request.post('user/email/verify', data); }
+export function bindEmail(data) { return request.post('user/email/bind', data); }
+export function getAccountIdentities() { return request.get('user/identities'); }
+
 /**
  * 用户手机号修改密码
  * @param data object 用户手机号 验证码 密码

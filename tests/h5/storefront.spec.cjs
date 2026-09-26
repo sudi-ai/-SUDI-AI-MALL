@@ -77,6 +77,17 @@ test('detail renders product images, options, and all three AI entries', async (
   await expect(page.getByText(/商城正式流程/)).toBeVisible();
 });
 
+test('existing buyer can reach email binding without creating a second account', async ({page}) => {
+  await page.goto('/pages/users/user_info/index');
+  await expect(page.getByText('登录邮箱', {exact: true})).toBeVisible({timeout: 30000});
+  await page.getByText('点击绑定邮箱', {exact: false}).click();
+  await expect(page).toHaveURL(/email_auth\/index\?mode=bind/);
+  await expect(page.getByText('验证并绑定', {exact: true})).toBeVisible();
+  await expect(field(page, '请输入邮箱地址')).toBeVisible();
+  await expect(page.getByText('注册并登录', {exact: true})).toHaveCount(0);
+  await page.screenshot({path: 'test-results/email-binding.png', fullPage: true});
+});
+
 test('category and cart pages load without a blank page', async ({page}) => {
   const categories = await (await page.request.get('/api/category')).json();
   expect(categories.data.find(category => category.id === 1).cate_name).toBe('手机数码');

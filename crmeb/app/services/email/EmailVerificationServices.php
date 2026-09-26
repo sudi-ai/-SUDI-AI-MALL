@@ -3,10 +3,11 @@ namespace app\services\email;
 
 use app\services\user\LoginServices;
 use crmeb\services\CacheService;
+use think\facade\Config;
 
 class EmailVerificationServices
 {
-    public function sendRegistrationCode(string $email, LoginServices $login): void
+    public function sendRegistrationCode(string $email, LoginServices $login, string $purpose = 'register', int $uid = 0): void
     {
         $email = strtolower(trim($email));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100) throw new \InvalidArgumentException('邮箱格式不正确');
@@ -28,25 +29,35 @@ class EmailVerificationServices
         $code = (string)random_int(100000, 999999);
         $mailer = new SmtpMailer((array)Config::get('email', []));
         $mailer->send($email, '苏迪商城邮箱验证码', '你的邮箱注册验证码是：' . $code . '，10分钟内有效。若非本人操作，请忽略此邮件。');
-        CacheService::set('email.register.code.' . hash('sha256', $email), $this->codeHash($code), 600);
+        if (!CacheService::set($this->codeKey($email, $purpose, $uid), $this->codeHash($code), 600)) {
+            throw new \RuntimeException('验证码存储失败');
+        }
     }
 
-    public function verifyRegistrationCode(string $email, string $code): bool
+    public function verifyRegistrationCode(string $email, string $code, string $purpose = 'register', int $uid = 0): bool
     {
-        $emailHash = hash('sha256', strtolower(trim($email)));
-        $stored = CacheService::get('email.register.code.' . $emailHash);
-        $attemptKey = 'email.register.attempt.' . $emailHash;
+        $key = $this->codeKey($email, $purpose, $uid);
+        $stored = CacheService::get($key);
+        $attemptKey = $key . '.attempt';
         $attempts = (int)CacheService::get($attemptKey, 0);
         if ($attempts >= 6) return false;
         if ($stored !== '' && $stored !== null) CacheService::set($attemptKey, $attempts + 1, 600);
         return is_string($stored) && $stored !== '' && password_verify($code, $stored);
     }
 
-    public function clearRegistrationCode(string $email): void
+    public function clearRegistrationCode(string $email, string $purpose = 'register', int $uid = 0): void
     {
-        $emailHash = hash('sha256', strtolower(trim($email)));
-        CacheService::delete('email.register.code.' . $emailHash);
-        CacheService::delete('email.register.attempt.' . $emailHash);
+        $key = $this->codeKey($email, $purpose, $uid);
+        CacheService::delete($key);
+        CacheService::delete($key . '.attempt');
+    }
+
+    private function codeKey(string $email, string $purpose, int $uid): string
+    {
+        if (!in_array($purpose, ['register', 'bind'], true) || ($purpose === 'bind' && $uid < 1)) {
+            throw new \InvalidArgumentException('验证码用途不正确');
+        }
+        return 'email.' . $purpose . '.code.' . hash('sha256', strtolower(trim($email)) . ':' . $uid);
     }
 
     private function codeHash(string $code): string

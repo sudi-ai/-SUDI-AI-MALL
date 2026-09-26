@@ -134,6 +134,9 @@ Route::group(function () {
         Route::get('user/code', 'v1.LoginController/setLoginKey')->name('getLoginKey')->option(['real_name' => '查看code是否可用']);
         //用户绑定手机号
         Route::post('user/binding', 'v1.LoginController/user_binding_phone')->name('userBindingPhone')->option(['real_name' => '用户绑定手机号']);
+        Route::get('user/identities', 'v1.EmailAuthController/identities');
+        Route::post('user/email/verify', 'v1.EmailAuthController/bindVerify');
+        Route::post('user/email/bind', 'v1.EmailAuthController/bind');
         Route::get('logout', 'v1.LoginController/logout')->name('logout')->option(['real_name' => '退出登录']);// 退出登录
         Route::post('switch_h5', 'v1.LoginController/switch_h5')->name('switch_h5')->option(['real_name' => '切换账号']);// 切换账号
         //公共类

@@ -387,7 +387,8 @@ class LoginController
         } catch (ValidateException $e) {
             return app('json')->fail($e->getError());
         }
-        if (!$step) {
+        // Every binding request needs proof of phone ownership, including confirmation steps.
+        {
             //验证验证码
             $verifyCode = CacheService::get('code_' . $phone);
             if (!$verifyCode)
@@ -548,10 +549,7 @@ class LoginController
      */
     public function remoteRegister(Request $request)
     {
-        [$remote_token] = $request->getMore([
-            ['remote_token', ''],
-        ], true);
-        if ($remote_token == '') return app('json')->success('登录失败', ['get_remote_login_url' => sys_config('get_remote_login_url')]);
-        return app('json')->success('登录成功', $this->services->remoteRegister($remote_token));
+        // Legacy remote tokens were decoded without signature verification.
+        return app('json')->fail('远程免验证登录未启用，请使用商城登录');
     }
 }

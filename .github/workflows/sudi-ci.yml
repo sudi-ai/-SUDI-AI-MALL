@@ -44,6 +44,12 @@ jobs:
           php -l tests/sudi/email_smtp_test.php
           php -l tests/sudi/email_smtp_fixture.php
           php -l tests/sudi/email_auth_contract_test.php
+          php -l tests/sudi/identity_service_integration.php
+          php -l tests/sudi/payment_auxiliary_test.php
+          php -l crmeb/app/api/controller/v1/LoginController.php
+          php -l crmeb/app/services/wechat/WechatServices.php
+          php -l crmeb/app/services/wechat/WechatUserServices.php
+          php -l crmeb/app/services/user/UserServices.php
 
   source-sanity:
     runs-on: ubuntu-latest
@@ -102,6 +108,8 @@ jobs:
         run: php ../tests/sudi/alipay_signature_test.php
       - name: Actual WeChat v2 and v3 signature verification
         run: php ../tests/sudi/wechat_signature_test.php
+      - name: Recharge and membership payment safety
+        run: php ../tests/sudi/payment_auxiliary_test.php
       - name: Email SMTP delivery and registration contracts
         run: |
           php ../tests/sudi/email_smtp_test.php
@@ -201,6 +209,13 @@ jobs:
           DRIVER = redis
           CACHE_PREFIX = sudi-ci:
           CACHE_TAG_PREFIX = SUDI-CI:
+          [EMAIL]
+          HOST = 127.0.0.1
+          PORT = 2525
+          FROM = noreply@example.invalid
+          FROM_NAME = SUDI CI
+          ENCRYPTION = none
+          TIMEOUT = 5
           EOF
       - name: Import CRMEB database
         run: |
@@ -208,6 +223,8 @@ jobs:
           mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 --init-command='SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci' crmeb31 < public/install/crmeb.sql
           mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_email_auth_migration.sql
           mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_email_auth_migration.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_identity_migration.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_identity_migration.sql
           mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='crmeb31' AND TABLE_NAME='eb_user' AND COLUMN_NAME IN ('email','pwd') ORDER BY COLUMN_NAME" > /tmp/sudi-email-columns.txt
           grep -q '^email[[:space:]]\+100$' /tmp/sudi-email-columns.txt
           grep -q '^pwd[[:space:]]\+255$' /tmp/sudi-email-columns.txt
@@ -355,6 +372,12 @@ jobs:
           grep -q "getProductStock" app/services/order/StoreOrderCreateServices.php
           mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE sudi_ci_stock;"
           echo "FINAL COMMERCE RISK ACCEPTANCE PACK OK"
+      - name: Unified login identity integration
+        env:
+          SUDI_DISPOSABLE_TEST_DB: '1'
+        run: |
+          set -o pipefail
+          php ../tests/sudi/identity_service_integration.php 2>&1 | tee /tmp/sudi-identity-integration.log
       - name: Real commerce service integration
         env:
           SUDI_DISPOSABLE_TEST_DB: '1'
@@ -392,6 +415,7 @@ jobs:
           name: sudi-regression-logs
           path: |
             /tmp/sudi-service-integration.log
+            /tmp/sudi-identity-integration.log
             /tmp/sudi-http.log
             crmeb/runtime/log/
       - name: Dump server log on failure
