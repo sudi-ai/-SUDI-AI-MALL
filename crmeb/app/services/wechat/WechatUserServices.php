@@ -275,6 +275,27 @@ class WechatUserServices extends BaseServices
      */
     public function wechatOauthAfter($data)
     {
+        if (!$data || empty($data[0])) throw new ApiException('微信身份验证失败');
+        // Serialize first login across公众号/小程序 so a shared unionid cannot create two UIDs.
+        $keys = ['openid:' . ($data[5] ?? '') . ':' . $data[0]];
+        if (!empty($data[1]['unionid'])) $keys[] = 'unionid:' . $data[1]['unionid'];
+        $keys = array_map(function ($key) { return 'sudi-id:' . substr(hash('sha256', $key), 0, 48); }, $keys);
+        sort($keys);
+        $held = [];
+        try {
+            foreach ($keys as $key) {
+                $lock = \think\facade\Db::query('SELECT GET_LOCK(?, 5) AS acquired', [$key]);
+                if ((int)($lock[0]['acquired'] ?? 0) !== 1) throw new ApiException('登录繁忙，请稍后重试');
+                $held[] = $key;
+            }
+            return $this->resolveWechatIdentity($data);
+        } finally {
+            foreach (array_reverse($held) as $key) \think\facade\Db::query('SELECT RELEASE_LOCK(?)', [$key]);
+        }
+    }
+
+    private function resolveWechatIdentity($data)
+    {
         if (!$data) throw new ApiException('用户信息获取失败，请刷新页面重试');
         [$openid, $wechatInfo, $spreadId, $agent_id, $login_type, $userType] = $data;
         /** @var UserServices $userServices */

@@ -61,6 +61,48 @@ function identityUid($token) {
     return (int)$res['data']['uid'];
 }
 
+if (($argv[1] ?? '') === 'oauth-worker') {
+    [$script, $mode, $union, $type, $barrier] = $argv;
+    file_put_contents($barrier . '.' . getmypid() . '.ready', 'ready');
+    $deadline = microtime(true) + 20;
+    while (!is_file($barrier)) {
+        if (microtime(true) > $deadline) throw new RuntimeException('OAuth worker barrier timed out');
+        usleep(10000);
+    }
+    $open = $union . '-' . $type;
+    $user = app()->make(WechatUserServices::class)->wechatOauthAfter([$open, ['openid' => $open, 'unionid' => $union, 'nickname' => 'CI parallel'], 0, 0, $type, $type]);
+    echo 'RESULT:' . (int)$user['uid'] . "\n";
+    exit;
+}
+
+function identityRaceWechat() {
+    $union = 'ci-race-' . bin2hex(random_bytes(8));
+    $barrier = sys_get_temp_dir() . '/' . $union;
+    $workers = [];
+    foreach (['wechat', 'routine'] as $type) {
+        $command = implode(' ', array_map('escapeshellarg', [PHP_BINARY, __FILE__, 'oauth-worker', $union, $type, $barrier]));
+        $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) throw new RuntimeException('Cannot launch OAuth worker');
+        fclose($pipes[0]);
+        $workers[] = [$process, $pipes];
+    }
+    $deadline = microtime(true) + 20;
+    while (count(glob($barrier . '.*.ready')) < 2) {
+        if (microtime(true) > $deadline) throw new RuntimeException('OAuth workers not ready');
+        usleep(10000);
+    }
+    touch($barrier);
+    $uids = [];
+    foreach ($workers as [$process, $pipes]) {
+        $out = stream_get_contents($pipes[1]); $err = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        if (proc_close($process) !== 0 || !preg_match('/RESULT:(\d+)/', $out, $match)) throw new RuntimeException('OAuth race failed: ' . $err);
+        $uids[] = (int)$match[1];
+    }
+    foreach (glob($barrier . '*') as $file) unlink($file);
+    identityCheck($uids[0] > 0 && $uids[0] === $uids[1], 'concurrent公众号/小程序 first login shares one UID');
+}
+
 $email = 'ci-' . bin2hex(random_bytes(5)) . '@example.invalid';
 $password = 'SudiIdentityCIpass42';
 $code = identityMailCode($email);
@@ -138,4 +180,5 @@ try {
     identityCheck(true, 'conflicting WeChat and phone UIDs cannot switch or merge accounts');
 }
 identityCheck(identityApi('remote_register', [], '', 'GET')['status'] !== 200, 'unsigned remote tokens cannot log in');
+identityRaceWechat();
 echo "UNIFIED IDENTITY INTEGRATION PASSED\n";
