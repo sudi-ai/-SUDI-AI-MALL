@@ -36,7 +36,7 @@ test('buyer signs in through the password login page', async ({browser}) => {
   try {
     await page.goto('http://127.0.0.1:8000/pages/users/login/index');
     await page.getByText('账号登录', {exact: true}).click();
-    await field(page, '输入手机号码').fill('sudibuyer');
+    await field(page, '手机号、邮箱或账号').fill('sudibuyer');
     await field(page, '填写登录密码').fill('SudiCiOnly42');
     await page.locator('.protocol uni-checkbox').click();
     const login = page.waitForResponse(r => /\/api\/login(?:\?|$)/.test(r.url()));

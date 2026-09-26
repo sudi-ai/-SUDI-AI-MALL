@@ -12,7 +12,7 @@
 					<view class="item">
 						<view class="acea-row row-middle">
 							<image src="../static/phone_1.png" style="width: 24rpx; height: 34rpx"></image>
-							<input type="text" :placeholder="$t(`输入手机号或邮箱`)" v-model="account" maxlength="100" required />
+							<input type="text" :placeholder="$t(`手机号、邮箱或账号`)" v-model="account" maxlength="100" required />
 						</view>
 					</view>
 					<view class="item">
