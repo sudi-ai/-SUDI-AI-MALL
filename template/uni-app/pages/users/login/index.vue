@@ -56,7 +56,7 @@
 			<!-- #ifndef APP-PLUS -->
 			<view class="tips">
 				<view v-if="current == 0" @click="current = 1">{{ $t(`手机验证码登录`) }}</view>
-				<view v-if="current == 1" @click="current = 0">{{ $t(`账号登录`) }}</view>
+				<view v-if="current == 1" @click="current = 0">{{ $t(`密码登录`) }}</view>
 			</view>
 			<!-- #endif -->
 			<!-- #ifdef APP-PLUS -->
@@ -470,6 +470,10 @@ export default {
 							that.$store.commit('SETUID', res.data.uid);
 							if (backUrl.indexOf('/pages/users/login/index') !== -1) {
 								backUrl = '/pages/index/index';
+							}
+							if (data.needs_password_setup) {
+								that.$Cache.set('password_setup_back', backUrl, 600);
+								return uni.reLaunch({ url: '/pages/users/user_pwd_edit/index?setup=1' });
 							}
 							uni.reLaunch({
 								url: backUrl

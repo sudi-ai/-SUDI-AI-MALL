@@ -30,7 +30,7 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(page.getByText('苏迪 AI 购前助手')).toBeVisible();
 });
 
-test('mobile SMS login creates an account and returns to shopping', async ({browser}) => {
+test('mobile SMS signup sets a password, returns to shopping, and reuses the account', async ({browser}) => {
   // A disposable, seeded OTP tests the real login API, not Aliyun SMS delivery.
   const sms = JSON.parse(fs.readFileSync('/tmp/sudi-sms-browser.json', 'utf8'));
   const context = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
@@ -51,12 +51,42 @@ test('mobile SMS login creates an account and returns to shopping', async ({brow
     await page.screenshot({path: 'test-results/mobile-code-login.png', fullPage: true});
     const login = page.waitForResponse(r => r.url().includes('/api/login/mobile'));
     await page.getByText('验证并登录', {exact: true}).click();
-    expect((await (await login).json()).status).toBe(200);
+    const registered = await (await login).json();
+    expect(registered.status).toBe(200);
+    expect(registered.data.needs_password_setup).toBe(true);
+    await expect(page).toHaveURL(/user_pwd_edit\/index\?setup=1/);
+    await expect(page.getByText('注册成功！设置密码后，下次可选择密码或验证码登录。', {exact: true})).toBeVisible();
+    await expect(page.locator('.codeIput')).toHaveCount(0);
+    await field(page, '设置新密码').fill('MobileSudi42');
+    await field(page, '确认新密码').fill('MobileSudi42');
+    await page.screenshot({path: 'test-results/mobile-password-setup.png', fullPage: true});
+    const setup = page.waitForResponse(r => r.url().includes('/api/user/password/setup'));
+    await page.getByText('保存密码', {exact: true}).click();
+    expect((await (await setup).json()).status).toBe(200);
     await expect(page).toHaveURL(/goods_details/);
     await expect(page.getByText(fixture.productName).first()).toBeVisible();
     const replay = await context.request.post('http://127.0.0.1:8000/api/login/mobile', {data: {phone: sms.phone, captcha: sms.code}});
     expect((await replay.json()).status).not.toBe(200);
     await page.screenshot({path: 'test-results/mobile-login-shopping.png', fullPage: true});
+    const original = await context.request.get('http://127.0.0.1:8000/api/user/identities', {headers: {'Authori-zation': 'Bearer ' + registered.data.token}});
+    const uid = (await original.json()).data.uid;
+    const returning = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
+    try {
+      const next = await returning.newPage();
+      await next.goto('http://127.0.0.1:8000/pages/users/login/index');
+      await next.getByText('密码登录', {exact: true}).click();
+      await field(next, '手机号、邮箱或账号').fill(sms.phone);
+      await field(next, '填写登录密码').fill('MobileSudi42');
+      await next.locator('.protocol uni-checkbox').click();
+      const signedIn = next.waitForResponse(r => /\/api\/login(?:\?|$)/.test(r.url()));
+      await next.locator('.logon').click();
+      const result = await (await signedIn).json();
+      expect(result.status).toBe(200);
+      await expect(next.getByText('新品上架').first()).toBeVisible();
+      const identity = await returning.request.get('http://127.0.0.1:8000/api/user/identities', {headers: {'Authori-zation': 'Bearer ' + result.data.token}});
+      expect((await identity.json()).data.uid).toBe(uid);
+      await next.screenshot({path: 'test-results/mobile-password-return.png', fullPage: true});
+    } finally { await returning.close(); }
   } finally { await context.close(); }
 });
 
@@ -65,7 +95,7 @@ test('buyer signs in through the password login page', async ({browser}) => {
   const page = await context.newPage();
   try {
     await page.goto('http://127.0.0.1:8000/pages/users/login/index');
-    await page.getByText('账号登录', {exact: true}).click();
+    await page.getByText('密码登录', {exact: true}).click();
     await field(page, '手机号、邮箱或账号').fill('sudibuyer');
     await field(page, '填写登录密码').fill('SudiCiOnly42');
     await page.locator('.protocol uni-checkbox').click();

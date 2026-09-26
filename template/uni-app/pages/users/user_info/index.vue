@@ -67,10 +67,10 @@
 					</view>
 					<!-- #endif -->
 					<!-- #ifdef H5 -->
-					<view class="item acea-row row-between-wrapper" v-if="userInfo.phone && !this.$wechat.isWeixin()">
+					<view class="item acea-row row-between-wrapper" v-if="userInfo.phone">
 						<view>{{$t(`密码`)}}</view>
 						<navigator url="/pages/users/user_pwd_edit/index" hover-class="none" class="input">
-							{{$t(`点击修改密码`)}}<text class="iconfont icon-xiangyou"></text>
+							{{$t(`设置或修改密码`)}}<text class="iconfont icon-xiangyou"></text>
 						</navigator>
 					</view>
 					<!-- #endif -->

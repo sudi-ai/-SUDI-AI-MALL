@@ -410,11 +410,13 @@ class LoginServices extends BaseServices
     {
         //数据库查询
         $user = $this->findLoginUser((string)$phone);
+        $created = false;
         if (!$user) {
             $user = $this->register($phone, bin2hex(random_bytes(32)), $spread, $user_type);
             if (!$user) {
                 throw new ApiException('用户登录失败,无法生成新用户,请稍后再试');
             }
+            $created = true;
         }
 
         if (!$user->status)
@@ -427,9 +429,13 @@ class LoginServices extends BaseServices
             $this->updateUserInfo(['code' => $spread], $user);
         }
 
-        $token = $this->createToken((int)$user['uid'], 'api');
+        $token = $this->createToken((int)$user['uid'], 'api', '', $created
+            ? ['password_setup_nonce' => bin2hex(random_bytes(24))] : []);
         if ($token) {
-            return ['token' => $token['token'], 'expires_time' => $token['params']['exp']];
+            if ($created) {
+                app()->make(PasswordSetupServices::class)->grant((int)$user['uid'], (string)$phone, (string)$user['pwd'], $token['token']);
+            }
+            return ['token' => $token['token'], 'expires_time' => $token['params']['exp'], 'needs_password_setup' => $created];
         } else {
             throw new ApiException('登录失败');
         }

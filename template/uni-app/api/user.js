@@ -88,6 +88,7 @@ export function registerByEmail(data) {
 export function sendEmailBindCode(data) { return request.post('user/email/verify', data); }
 export function bindEmail(data) { return request.post('user/email/bind', data); }
 export function getAccountIdentities() { return request.get('user/identities'); }
+export function setupLoginPassword(data) { return request.post('user/password/setup', data); }
 
 /**
  * 用户手机号修改密码

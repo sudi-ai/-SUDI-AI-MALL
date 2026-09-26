@@ -18,6 +18,7 @@ use think\facade\Config;
 use crmeb\services\CacheService;
 use app\services\user\LoginServices;
 use app\services\user\SmsCodeServices;
+use app\services\user\PasswordSetupServices;
 use think\exception\ValidateException;
 use app\api\validate\user\RegisterValidates;
 
@@ -248,6 +249,15 @@ class LoginController
         } else {
             return app('json')->fail('退出成功');
         }
+    }
+
+    public function passwordSetup(Request $request, PasswordSetupServices $setup)
+    {
+        $tokenData = $request->tokenData();
+        // Password bytes must not be trimmed or passed through content filters.
+        $setup->setup((int)$request->uid(), (string)($tokenData['token'] ?? ''),
+            $request->post('password', null, null), $request->post('password_confirm', null, null));
+        return app('json')->success('密码设置成功');
     }
 
     /**
