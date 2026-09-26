@@ -1016,6 +1016,10 @@
 					}
 				},
 				{
+					"path": "email_auth/index",
+					"style": { "navigationBarTitleText": "邮箱注册" }
+				},
+				{
 					"path": "payment_on_behalf/index",
 					"style": {
 						"navigationBarTitleText": "好友代付",

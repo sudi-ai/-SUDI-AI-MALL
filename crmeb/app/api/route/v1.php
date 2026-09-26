@@ -47,6 +47,9 @@ Route::group(function () {
     Route::post('register', 'v1.LoginController/register')->name('register')->option(['real_name' => '手机号注册']);
     //手机号修改密码
     Route::post('register/reset', 'v1.LoginController/reset')->name('registerReset')->option(['real_name' => '手机号修改密码']);
+    //邮箱验证码与注册
+    Route::post('email/register/verify', 'v1.EmailAuthController/verify')->name('emailRegisterVerify')->option(['real_name' => '邮箱注册验证码']);
+    Route::post('email/register', 'v1.EmailAuthController/register')->name('emailRegister')->option(['real_name' => '邮箱注册']);
     // 绑定手机号(静默授权 还未有用户信息)
     Route::post('binding', 'v1.LoginController/binding_phone')->name('bindingPhone')->option(['real_name' => '绑定手机号']);
     // 支付宝复制链接支付 弃用

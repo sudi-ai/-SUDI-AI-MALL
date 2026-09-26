@@ -52,7 +52,7 @@ class LoginServices extends BaseServices
      */
     public function login($account, $password, $spread, $agent_id)
     {
-        $user = $this->dao->getOne(['account|phone' => $account, 'is_del' => 0]);
+        $user = $this->dao->getOne(['account|phone|email' => $account, 'is_del' => 0]);
         if ($user) {
             $storedPassword = (string)$user->pwd;
             $legacyMd5 = preg_match('/^[a-f0-9]{32}$/i', $storedPassword) === 1;
@@ -86,6 +86,11 @@ class LoginServices extends BaseServices
             return ['token' => $token['token'], 'expires_time' => $token['params']['exp']];
         } else
             throw new ApiException('登录失败');
+    }
+
+    public function emailExists(string $email): bool
+    {
+        return (bool)$this->dao->getOne(['account|email' => strtolower(trim($email)), 'is_del' => 0]);
     }
 
     /**
@@ -300,6 +305,52 @@ class LoginServices extends BaseServices
             }
             return $re;
         }
+    }
+
+    /** Register an email identity on the same CRMEB user model as phone and WeChat users. */
+    public function registerEmail(string $email, string $password, int $spread = 0)
+    {
+        $email = strtolower(trim($email));
+        if ($this->dao->getOne(['account|phone|email' => $email, 'is_del' => 0])) {
+            throw new ApiException('邮箱已注册');
+        }
+        /** @var UserServices $userServices */
+        $userServices = app()->make(UserServices::class);
+        $nickname = substr($email, 0, 2) . '***';
+        $data = [
+            'account' => $email,
+            'email' => $email,
+            'pwd' => password_hash($password, PASSWORD_DEFAULT),
+            'phone' => '',
+            'real_name' => '', 'birthday' => 0, 'card_id' => '', 'mark' => '', 'addres' => '',
+            'user_type' => 'email', 'add_time' => time(), 'add_ip' => app('request')->ip(),
+            'last_time' => time(), 'last_ip' => app('request')->ip(), 'nickname' => $nickname,
+            'avatar' => sys_config('h5_avatar'), 'city' => '', 'language' => '',
+            'province' => '', 'country' => '', 'status' => 1,
+        ];
+        if ($spread) {
+            $spreadInfo = $userServices->get($spread);
+            if (!$spreadInfo) throw new ApiException('推广用户不存在');
+            $data['spread_uid'] = $spread;
+            $data['spread_time'] = time();
+            $data['division_id'] = $spreadInfo['division_id'];
+            $data['agent_id'] = $spreadInfo['agent_id'];
+            $data['staff_id'] = $spreadInfo['staff_id'];
+        }
+        try {
+            $user = $this->dao->save($data);
+        } catch (\Throwable $e) {
+            throw new ApiException('邮箱已注册或注册暂不可用');
+        }
+        if (!$user) throw new ApiException('注册失败');
+        $uid = (int)$user->uid;
+        $userServices->rewardNewUser($uid);
+        event('UserRegisterListener', [$spread, 'email', $nickname, $uid, 1]);
+        event('CustomEventListener', ['user_register', [
+            'uid' => $uid, 'nickname' => $nickname, 'phone' => '',
+            'add_time' => date('Y-m-d H:i:s'), 'user_type' => 'email',
+        ]]);
+        return $user;
     }
 
     /**

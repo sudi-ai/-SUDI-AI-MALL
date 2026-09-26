@@ -36,7 +36,7 @@ class User extends BaseModel
     protected $insert = ['add_time', 'add_ip', 'last_time', 'last_ip'];
 
     protected $hidden = [
-        'add_ip', 'account', 'clean_time', 'last_ip', 'pwd'
+        'add_ip', 'account', 'clean_time', 'last_ip', 'pwd', 'email'
     ];
 
     /**

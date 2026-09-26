@@ -76,6 +76,15 @@ export function register(data) {
 	});
 }
 
+/** Email verification and account registration. */
+export function sendEmailRegisterCode(data) {
+	return request.post("email/register/verify", data, { noAuth: true });
+}
+
+export function registerByEmail(data) {
+	return request.post("email/register", data, { noAuth: true });
+}
+
 /**
  * 用户手机号修改密码
  * @param data object 用户手机号 验证码 密码

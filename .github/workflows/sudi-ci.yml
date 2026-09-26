@@ -35,6 +35,15 @@ jobs:
           php -l crmeb/crmeb/services/app/WechatService.php
           php -l crmeb/crmeb/services/pay/storage/V3WechatPay.php
           php -l tests/sudi/wechat_signature_test.php
+          php -l crmeb/app/api/controller/v1/EmailAuthController.php
+          php -l crmeb/app/services/email/SmtpMailer.php
+          php -l crmeb/app/services/email/EmailVerificationServices.php
+          php -l crmeb/app/services/user/LoginServices.php
+          php -l crmeb/app/model/user/User.php
+          php -l crmeb/config/email.php
+          php -l tests/sudi/email_smtp_test.php
+          php -l tests/sudi/email_smtp_fixture.php
+          php -l tests/sudi/email_auth_contract_test.php
 
   source-sanity:
     runs-on: ubuntu-latest
@@ -93,6 +102,10 @@ jobs:
         run: php ../tests/sudi/alipay_signature_test.php
       - name: Actual WeChat v2 and v3 signature verification
         run: php ../tests/sudi/wechat_signature_test.php
+      - name: Email SMTP delivery and registration contracts
+        run: |
+          php ../tests/sudi/email_smtp_test.php
+          php ../tests/sudi/email_auth_contract_test.php
 
   h5-build:
     runs-on: ubuntu-latest
@@ -193,6 +206,12 @@ jobs:
         run: |
           mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL sql_mode='NO_ENGINE_SUBSTITUTION';"
           mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 --init-command='SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci' crmeb31 < public/install/crmeb.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_email_auth_migration.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_email_auth_migration.sql
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='crmeb31' AND TABLE_NAME='eb_user' AND COLUMN_NAME IN ('email','pwd') ORDER BY COLUMN_NAME" > /tmp/sudi-email-columns.txt
+          grep -q '^email[[:space:]]\+100$' /tmp/sudi-email-columns.txt
+          grep -q '^pwd[[:space:]]\+255$' /tmp/sudi-email-columns.txt
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='crmeb31' AND TABLE_NAME='eb_user' AND INDEX_NAME='uniq_user_email'")" -eq 1
           CATEGORY_HEX=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e 'SELECT HEX(cate_name) FROM eb_store_category WHERE id=1')
           echo "Imported category UTF-8 bytes: $CATEGORY_HEX"
           test "$CATEGORY_HEX" = 'E6898BE69CBAE695B0E7A081'

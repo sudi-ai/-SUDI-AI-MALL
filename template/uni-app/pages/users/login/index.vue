@@ -12,7 +12,7 @@
 					<view class="item">
 						<view class="acea-row row-middle">
 							<image src="../static/phone_1.png" style="width: 24rpx; height: 34rpx"></image>
-							<input type="text" :placeholder="$t(`输入手机号码`)" v-model="account" maxlength="11" required />
+							<input type="text" :placeholder="$t(`输入手机号或邮箱`)" v-model="account" maxlength="100" required />
 						</view>
 					</view>
 					<view class="item">
@@ -56,6 +56,7 @@
 			<view class="tips">
 				<view v-if="current == 0" @click="current = 1">{{ $t(`快速登录`) }}</view>
 				<view v-if="current == 1" @click="current = 0">{{ $t(`账号登录`) }}</view>
+				<view @click="openEmailRegister">邮箱注册</view>
 			</view>
 			<!-- #endif -->
 			<!-- #ifdef APP-PLUS -->
@@ -176,6 +177,9 @@ export default {
 		this.getLogoImage();
 	},
 	methods: {
+		openEmailRegister() {
+			uni.navigateTo({ url: '/pages/users/email_auth/index' });
+		},
 		ChangeIsDefault(e) {
 			this.$set(this, 'protocol', !this.protocol);
 		},
@@ -585,7 +589,7 @@ export default {
 				return that.$util.Tips({
 					title: that.$t(`请填写账号`)
 				});
-			if (!/^[\w\d]{5,16}$/i.test(that.account))
+			if (!/^[\w\d]{5,16}$/i.test(that.account) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(that.account))
 				return that.$util.Tips({
 					title: that.$t(`请输入正确的账号`)
 				});
