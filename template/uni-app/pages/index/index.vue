@@ -19,6 +19,7 @@
     <PageDesign
       :style="colorStyle"
       :diyData="currentDiyData"
+      :goodList="goodList"
       :isHome="true"
       :isScrolled="isScrolled"
       :isFixed="isFixed"
@@ -34,6 +35,20 @@
       @reconnect="reconnect"
     >
       <template #bottom>
+        <!-- 苏迪商城兜底新品流：普通上架商品无需参加秒杀/拼团也能直接展示 -->
+        <view class="sudi-new-products px-20" v-if="styleConfig.length && goodList.length">
+          <view class="sudi-section-head">
+            <text class="sudi-section-title">新品上架</text>
+            <text class="sudi-section-desc">NEW ARRIVALS</text>
+          </view>
+          <waterfallsFlow
+            ref="sudiWaterfallsFlow"
+            :wfList="goodList"
+            :goDetail="'goDetail'"
+            @itemTap="goDetail"
+          ></waterfallsFlow>
+          <Loading :loaded="loaded" :loading="loading"></Loading>
+        </view>
         <!-- 分类商品模块 -->
         <view
           class="sort-product px-20"
@@ -114,6 +129,10 @@
         <!-- #endif -->
       </template>
     </PageDesign>
+    <view class="sudi-ai-entry" @click="openSudiAi">
+      <text class="sudi-ai-entry-title">AI 购物</text>
+      <text class="sudi-ai-entry-desc">告诉我你想买什么</text>
+    </view>
     <!-- #ifdef APP -->
     <app-update ref="appUpdate" :force="true" :tabbar="false"></app-update>
     <!-- #endif -->
@@ -356,6 +375,7 @@ export default {
   },
   onShow() {
     uni.removeStorageSync("form_type_cart");
+    this.loadSudiHomeProducts(true);
     // 优惠券弹窗
     if (this.isLogin) {
       this.getCoupon();
@@ -374,6 +394,39 @@ export default {
     uni.stopPullDownRefresh();
   },
   methods: {
+    loadSudiHomeProducts(reset = false) {
+      if (reset) {
+        this.goodList = [];
+        this.goodPage = 1;
+        this.loaded = false;
+        this.loading = false;
+      }
+      if (this.loading || this.loaded) return;
+      this.loading = true;
+      getProductslist({
+        sid: 0,
+        cid: 0,
+        keyword: "",
+        priceOrder: "",
+        salesOrder: "",
+        news: 0,
+        timeOrder: 1,
+        page: this.goodPage,
+        limit: 10,
+      }).then((res) => {
+        const list = Array.isArray(res.data) ? res.data : [];
+        this.goodList = this.goodList.concat(list);
+        this.loaded = list.length < 10;
+        this.goodPage++;
+      }).catch(() => {
+        this.loaded = true;
+      }).finally(() => {
+        this.loading = false;
+      });
+    },
+    openSudiAi() {
+      uni.navigateTo({ url: "/pages/sudi_ai/index" });
+    },
     ...mapMutations(["SET_AUTOPLAY", "SET_NEARBY"]),
     checkMyApplet() {
       wx.checkIsAddedToMyMiniProgram({
@@ -821,7 +874,9 @@ export default {
     // #endif
   },
   onReachBottom() {
-    if (this.goodList.length) {
+    if (this.styleConfig.length) {
+      this.loadSudiHomeProducts();
+    } else if (this.goodList.length) {
       this.getGoodsList();
     }
   },
@@ -1015,5 +1070,46 @@ export default {
 }
 .select {
   border: 1px solid var(--view-theme);
+}
+</style>
+
+<style scoped>
+.sudi-ai-entry{position:fixed;right:24rpx;bottom:150rpx;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;width:132rpx;height:132rpx;border-radius:50%;background:#ff3366;color:#fff;box-shadow:0 8rpx 24rpx rgba(0,0,0,.14)}
+.sudi-ai-entry-title{font-size:27rpx;font-weight:700}
+.sudi-ai-entry-desc{margin-top:4rpx;font-size:18rpx;opacity:.9}
+
+.sudi-new-products{padding-top:24rpx;padding-bottom:24rpx;background:#f7f7f7}
+.sudi-section-head{display:flex;align-items:baseline;gap:14rpx;padding:10rpx 4rpx 24rpx}
+.sudi-section-title{font-size:34rpx;font-weight:600;color:#222}
+.sudi-section-desc{font-size:20rpx;letter-spacing:2rpx;color:#999}
+
+/* SUDI H5 responsive shell. Mobile remains unchanged. */
+@media screen and (min-width: 769px) {
+  .page { background:#f5f5f5; }
+  .page ::v-deep .page-design,
+  .page ::v-deep .index,
+  .sudi-new-products,
+  .sort-product,
+  .site-config {
+    max-width:1180px;
+    margin-left:auto !important;
+    margin-right:auto !important;
+    box-sizing:border-box;
+  }
+  .sudi-new-products { padding:28px 24px 48px; }
+  .sudi-section-head { padding:4px 0 22px; }
+  .sudi-section-title { font-size:24px; }
+  .sudi-section-desc { font-size:12px; }
+  .sudi-ai-entry { right:32px; bottom:32px; width:76px; height:76px; }
+  .sudi-ai-entry-title { font-size:15px; }
+  .sudi-ai-entry-desc { display:none; }
+}
+@media screen and (min-width: 1200px) {
+  .page ::v-deep .page-design,
+  .page ::v-deep .index,
+  .sudi-new-products,
+  .sort-product,
+  .site-config { max-width:1320px; }
+  .sudi-new-products { padding-left:30px; padding-right:30px; }
 }
 </style>

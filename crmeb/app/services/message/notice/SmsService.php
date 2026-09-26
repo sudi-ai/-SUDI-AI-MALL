@@ -75,6 +75,10 @@ class SmsService extends NoticeService
             if ($type == 'tencent') {
                 $data = $this->handleTencent($mark, $data);
             }
+            if ($type == 'aliyun' && $mark == 'verify_code') {
+                // Aliyun standard verification templates accept one numeric code variable.
+                $data = ['code' => (string)$data['code']];
+            }
             $smsMake = app()->make(ServeServices::class)->sms($type);
             $smsId = $mark == 'verify_code' ? app()->make(SystemNotificationServices::class)->value(['mark' => 'verify_code'], 'sms_id') : $this->noticeInfo['sms_id'];
             //发送短信

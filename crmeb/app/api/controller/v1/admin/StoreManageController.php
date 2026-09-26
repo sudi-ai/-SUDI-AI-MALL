@@ -203,6 +203,9 @@ class StoreManageController
             ['postage', 0],
             ['temp_id', 0],
             ['spec_type', 0],
+            ['items', []],
+            ['attrs', []],
+            [['is_show', 'd'], 0],
         ]);
         $this->services->createProduct($data);
         return app('json')->success('创建成功');

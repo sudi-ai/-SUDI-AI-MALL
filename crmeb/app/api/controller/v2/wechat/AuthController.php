@@ -112,15 +112,7 @@ class AuthController
     public function phoneLogin($key = '', $phone = '', $captcha = '', $spread_code = '', $spread_spid = '', $code = '')
     {
         //验证验证码
-        $verifyCode = CacheService::get('code_' . $phone);
-        if (!$verifyCode)
-            return app('json')->fail('请先获取验证码');
-        $verifyCode = substr($verifyCode, 0, 6);
-        if ($verifyCode != $captcha) {
-            CacheService::delete('code_' . $phone);
-            return app('json')->fail('验证码错误');
-        }
-        CacheService::delete('code_' . $phone);
+        app()->make(\app\services\user\SmsCodeServices::class)->consume((string)$phone, $captcha, (string)request()->ip());
         $data = $this->services->phoneLogin($key, $phone, $spread_code, 0, $spread_spid, $code);
         return app('json')->success($data);
     }

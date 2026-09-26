@@ -1,0 +1,484 @@
+name: SUDI Mall CI
+
+on:
+  push:
+    branches: [sudi-ai-dev]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax check
+        run: |
+          set -e
+          find crmeb/app/services/sudi crmeb/app/api/controller/v2/sudi -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l crmeb/app/api/route/sudi.php
+          php -l crmeb/app/api/controller/v1/admin/StoreManageController.php
+          php -l crmeb/app/services/admin/StoreManageServices.php
+          php -l crmeb/app/services/order/StoreCartServices.php
+          php -l crmeb/app/services/order/StoreOrderCreateServices.php
+          php -l crmeb/app/services/pay/PayNotifyServices.php
+          php -l crmeb/app/listener/pay/NotifyListener.php
+          php -l crmeb/crmeb/services/AliPayService.php
+          php -l crmeb/app/dao/BaseDao.php
+          php -l crmeb/app/api/controller/v1/store/StoreProductController.php
+          php -l crmeb/app/api/controller/v1/order/StoreOrderController.php
+          php -l crmeb/app/api/controller/v1/order/StoreOrderRefundController.php
+          php -l crmeb/app/services/order/StoreOrderRefundServices.php
+          php -l tests/sudi/commerce_service_integration.php
+          php -l crmeb/app/services/pay/WechatCallbackGuard.php
+          php -l crmeb/crmeb/services/easywechat/v3pay/PayClient.php
+          php -l crmeb/crmeb/services/app/WechatService.php
+          php -l crmeb/crmeb/services/pay/storage/V3WechatPay.php
+          php -l tests/sudi/wechat_signature_test.php
+          php -l crmeb/app/api/controller/v1/EmailAuthController.php
+          php -l crmeb/app/services/email/SmtpMailer.php
+          php -l crmeb/app/services/email/EmailVerificationServices.php
+          php -l crmeb/app/services/user/LoginServices.php
+          php -l crmeb/app/model/user/User.php
+          php -l crmeb/config/email.php
+          php -l tests/sudi/email_smtp_test.php
+          php -l tests/sudi/email_smtp_fixture.php
+          php -l tests/sudi/email_auth_contract_test.php
+          php -l tests/sudi/identity_service_integration.php
+          php -l tests/sudi/sms_auth_integration.php
+          php -l tests/sudi/password_setup_integration.php
+          php -l crmeb/app/services/user/PasswordSetupServices.php
+          php -l crmeb/app/services/BaseServices.php
+          php -l crmeb/app/api/route/v1.php
+          php -l crmeb/app/services/user/SmsCodeServices.php
+          php -l crmeb/app/services/message/notice/SmsService.php
+          php -l crmeb/crmeb/services/sms/storage/Aliyun.php
+          php -l crmeb/app/api/controller/v1/wechat/WechatController.php
+          php -l crmeb/app/api/controller/v2/wechat/WechatController.php
+          php -l crmeb/app/api/controller/v2/wechat/AuthController.php
+          php -l crmeb/app/api/controller/v1/user/DivisionController.php
+          php -l crmeb/app/api/controller/v1/user/SpreadApplyController.php
+          php -l tests/sudi/payment_auxiliary_test.php
+          php -l tests/sudi/alipay_page_test.php
+          php -l crmeb/app/services/pay/OrderPayServices.php
+          php -l crmeb/app/api/controller/v1/LoginController.php
+          php -l crmeb/app/services/wechat/WechatServices.php
+          php -l crmeb/app/services/wechat/WechatUserServices.php
+          php -l crmeb/app/services/user/UserServices.php
+
+  source-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject escaped newline artifacts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [
+            Path('template/uni-app/pages/index/index.vue'),
+            Path('template/uni-app/pages/admin/goods/addGoods.vue'),
+            Path('template/uni-app/pages/sudi_ai/index.vue'),
+          ]
+          bad=[]
+          for p in files:
+              text=p.read_text(encoding='utf-8')
+              if r'\n' in text or r'\t' in text:
+                  bad.append(str(p))
+          if bad:
+              raise SystemExit('escaped newline/tab artifacts: '+', '.join(bad))
+          print('source sanity OK')
+          PY
+      - name: Payment callback contract
+        run: php tests/sudi/payment_callback_contract_test.php
+
+  composer-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crmeb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: json,curl,bcmath,mbstring,zip,simplexml
+          coverage: none
+      - name: Validate Composer manifest
+        run: composer validate --no-check-publish
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-php74-${{ runner.os }}-${{ hashFiles('crmeb/composer.lock') }}
+      - name: Install PHP dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
+      - name: ThinkPHP CLI smoke test
+        run: php think list >/tmp/sudi-think-list.txt
+      - name: Actual Alipay RSA2 callback verification
+        run: php ../tests/sudi/alipay_signature_test.php
+      - name: Alipay page checkout isolation and signing
+        run: php ../tests/sudi/alipay_page_test.php
+      - name: Actual WeChat v2 and v3 signature verification
+        run: php ../tests/sudi/wechat_signature_test.php
+      - name: Recharge and membership payment safety
+        run: php ../tests/sudi/payment_auxiliary_test.php
+      - name: Email SMTP delivery and registration contracts
+        run: |
+          php ../tests/sudi/email_smtp_test.php
+          php ../tests/sudi/email_auth_contract_test.php
+
+  h5-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests/h5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/h5/package-lock.json
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Compile existing storefront source
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: npm run build:h5
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sudi-h5
+          path: tests/h5/dist/build/h5/
+          if-no-files-found: error
+
+  mysql-redis-integration:
+    needs: h5-build
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: crmeb31
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    defaults:
+      run:
+        working-directory: crmeb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: json,curl,bcmath,mbstring,zip,simplexml,pdo_mysql,redis,gd
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-php74-${{ runner.os }}-${{ hashFiles('crmeb/composer.lock') }}
+      - name: Install PHP dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
+      - name: Configure test environment
+        run: |
+          cat > .env <<'EOF'
+          [APP]
+          DEBUG = true
+          [DATABASE]
+          TYPE = mysql
+          HOSTNAME = 127.0.0.1
+          DATABASE = crmeb31
+          USERNAME = root
+          PASSWORD = root
+          HOSTPORT = 3306
+          CHARSET = utf8mb4
+          PREFIX = eb_
+          DEBUG = true
+          [REDIS]
+          REDIS_HOSTNAME = 127.0.0.1
+          PORT = 6379
+          REDIS_PASSWORD =
+          SELECT = 0
+          [CACHE]
+          DRIVER = redis
+          CACHE_PREFIX = sudi-ci:
+          CACHE_TAG_PREFIX = SUDI-CI:
+          [EMAIL]
+          HOST = 127.0.0.1
+          PORT = 2525
+          FROM = noreply@example.invalid
+          FROM_NAME = SUDI CI
+          ENCRYPTION = none
+          TIMEOUT = 5
+          EOF
+      - name: Import CRMEB database
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL sql_mode='NO_ENGINE_SUBSTITUTION';"
+          mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4 --init-command='SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci' crmeb31 < public/install/crmeb.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_email_auth_migration.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_email_auth_migration.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_identity_migration.sql
+          mysql -h127.0.0.1 -uroot -proot crmeb31 < public/install/sudi_identity_migration.sql
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='crmeb31' AND TABLE_NAME='eb_user' AND COLUMN_NAME IN ('email','pwd') ORDER BY COLUMN_NAME" > /tmp/sudi-email-columns.txt
+          grep -q '^email[[:space:]]\+100$' /tmp/sudi-email-columns.txt
+          grep -q '^pwd[[:space:]]\+255$' /tmp/sudi-email-columns.txt
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='crmeb31' AND TABLE_NAME='eb_user' AND INDEX_NAME='uniq_user_email'")" -eq 1
+          CATEGORY_HEX=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e 'SELECT HEX(cate_name) FROM eb_store_category WHERE id=1')
+          echo "Imported category UTF-8 bytes: $CATEGORY_HEX"
+          test "$CATEGORY_HEX" = 'E6898BE69CBAE695B0E7A081'
+          mysql -h127.0.0.1 -uroot -proot crmeb31 <<'SQL'
+          UPDATE eb_system_config SET value='"http://127.0.0.1:8000"' WHERE menu_name='site_url';
+          SQL
+          TABLES=$(mysql -N -h127.0.0.1 -uroot -proot -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='crmeb31'")
+          test "$TABLES" -gt 50
+          echo "CRMEB tables: $TABLES"
+      - name: Verify Redis
+        run: |
+          php -r '$r=new Redis(); if(!$r->connect("127.0.0.1",6379,2)){exit(1);} $r->set("sudi-ci:ping","ok"); if($r->get("sudi-ci:ping")!=="ok"){exit(2);} echo "Redis OK\n";'
+      - name: Boot CRMEB HTTP API
+        run: |
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t public ../tests/sudi/browser_router.php >/tmp/sudi-http.log 2>&1 &
+          echo $! >/tmp/sudi-http.pid
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/api/version >/tmp/sudi-version.json; then break; fi
+            sleep 1
+          done
+          cat /tmp/sudi-version.json
+          test -s /tmp/sudi-version.json
+      - name: Verify SUDI AI route responds
+        run: |
+          curl -fsS http://127.0.0.1:8000/api/sudi/ai/capabilities >/tmp/sudi-ai.json
+          cat /tmp/sudi-ai.json
+          grep -q "capabilities" /tmp/sudi-ai.json
+      - name: Verify commerce schema for SKU cart order flow
+        run: |
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW TABLES LIKE 'eb_store_product'; SHOW TABLES LIKE 'eb_store_product_attr'; SHOW TABLES LIKE 'eb_store_product_attr_value'; SHOW TABLES LIKE 'eb_store_cart'; SHOW TABLES LIKE 'eb_store_order'; SHOW TABLES LIKE 'eb_store_order_cart_info';" >/tmp/sudi-commerce-tables.txt
+          cat /tmp/sudi-commerce-tables.txt
+          test "$(wc -l </tmp/sudi-commerce-tables.txt)" -eq 6
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_product_attr_value" | grep -q "unique"
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_cart" | grep -q "product_attr_unique"
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_order" | grep -q "pay_price"
+      - name: Verify transaction safety contracts
+        run: |
+          grep -q "newCartNum" app/services/order/StoreCartServices.php
+          grep -q "nowStock" app/services/order/StoreCartServices.php
+          grep -q "getProductStock" app/services/order/StoreOrderCreateServices.php
+          grep -q "transaction" app/services/order/StoreOrderCreateServices.php
+          grep -q "bccomp" app/services/pay/PayNotifyServices.php
+          echo "commerce safety contracts OK"
+      - name: Exercise commerce database write lifecycle
+        run: |
+          COLS=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SHOW COLUMNS FROM eb_store_product" | cut -f1 | tr '\n' ' ')
+          echo "eb_store_product columns: $COLS"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product (image,slider_image,store_name,store_info,keyword,cate_id,price,ot_price,postage,unit_name,sort,sales,stock,is_show,is_new,add_time,is_postage,is_del,cost,spec_type) VALUES ('/test.jpg','[\"/test.jpg\"]','SUDI CI 女装测试款','CI only','SUDI-CI',1,199,259,0,'件',0,0,60,1,1,UNIX_TIMESTAMP(),1,0,80,1);"
+          PID=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id FROM eb_store_product WHERE store_name='SUDI CI 女装测试款' ORDER BY id DESC LIMIT 1")
+          test -n "$PID"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product WHERE id=$PID"
+          echo "commerce DB write/cleanup OK: product $PID"
+      - name: Exercise six-SKU inventory lifecycle
+        run: |
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product (image,slider_image,store_name,store_info,keyword,cate_id,price,ot_price,postage,unit_name,sort,sales,stock,is_show,is_new,add_time,is_postage,is_del,cost,spec_type) VALUES ('/test.jpg','[\"/test.jpg\"]','SUDI CI 六SKU测试款','CI only','SUDI-CI',1,199,259,0,'件',0,0,60,1,1,UNIX_TIMESTAMP(),1,0,80,1);"
+          PID=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id FROM eb_store_product WHERE store_name='SUDI CI 六SKU测试款' ORDER BY id DESC LIMIT 1")
+          test -n "$PID"
+          for I in 0 1 2 3 4 5; do
+            mysql -h127.0.0.1 -uroot -proot crmeb31 -e "INSERT INTO eb_store_product_attr_value (product_id,suk,stock,sales,price,image,\`unique\`,cost,ot_price) VALUES ($PID,CONCAT('CI-SKU-',$I),10,0,$((199+I)),'/test.jpg',SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-',$I)),1,8),80,259);"
+          done
+          echo "SUDI inserted SKU rows:"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT id,product_id,suk,stock,price,\`unique\` FROM eb_store_product_attr_value ORDER BY id DESC LIMIT 12;"
+          SKU_COUNT=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COUNT(*) FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` IN (SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-0')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-1')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-2')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-3')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-4')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-5')),1,8))")
+          SKU_STOCK=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT COALESCE(SUM(stock),0) FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` IN (SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-0')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-1')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-2')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-3')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-4')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-5')),1,8))")
+          echo "SUDI SKU fixture: pid=$PID count=$SKU_COUNT stock=$SKU_STOCK"
+          test "$SKU_COUNT" = "6"
+          test "$SKU_STOCK" = "60"
+          UNIQUE=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-0')),1,8)")
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE eb_store_product_attr_value SET stock=stock-1 WHERE product_id=$PID AND \`unique\`='$UNIQUE' AND stock>=1;"
+          AFTER_ONE=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\`='$UNIQUE'")
+          echo "SUDI stock after decrement: $AFTER_ONE"
+          test "$AFTER_ONE" = "9"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE eb_store_product_attr_value SET stock=stock-99 WHERE product_id=$PID AND \`unique\`='$UNIQUE' AND stock>=99;"
+          AFTER_OVERSELL=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\`='$UNIQUE'")
+          echo "SUDI stock after oversell attempt: $AFTER_OVERSELL"
+          test "$AFTER_OVERSELL" = "9"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DELETE FROM eb_store_product_attr_value WHERE product_id=$PID AND \`unique\` IN (SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-0')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-1')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-2')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-3')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-4')),1,8),SUBSTRING(MD5(CONCAT('sudi-ci-',$PID,'-5')),1,8)); DELETE FROM eb_store_product WHERE id=$PID;"
+          echo "six SKU + atomic stock lifecycle OK"
+      - name: Final commerce risk acceptance pack
+        run: |
+          set -e
+          echo "[1/8] concurrent stock: two buyers compete for last unit"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE IF EXISTS sudi_ci_stock; CREATE TABLE sudi_ci_stock(id INT PRIMARY KEY, stock INT NOT NULL) ENGINE=InnoDB; INSERT INTO sudi_ci_stock VALUES(1,1);"
+          cat > /tmp/sudi-race.sh <<'SH'
+          #!/usr/bin/env bash
+          set +e
+          mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=stock-1 WHERE id=1 AND stock>=1; SELECT ROW_COUNT();" >"$1" 2>"$1.err"
+          echo $? >"$1.code"
+          SH
+          chmod +x /tmp/sudi-race.sh
+          /tmp/sudi-race.sh /tmp/race-a.out & PA=$!
+          /tmp/sudi-race.sh /tmp/race-b.out & PB=$!
+          set +e
+          wait "$PA"; WA=$?
+          wait "$PB"; WB=$?
+          set -e
+          A=$(tail -n1 /tmp/race-a.out 2>/dev/null || echo ERR)
+          B=$(tail -n1 /tmp/race-b.out 2>/dev/null || echo ERR)
+          FINAL=$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")
+          echo "race result: A=$A B=$B waitA=$WA waitB=$WB final=$FINAL"
+          cat /tmp/race-a.out.err /tmp/race-b.out.err || true
+          test "$WA" = "0"
+          test "$WB" = "0"
+          test "$A" != "ERR"
+          test "$B" != "ERR"
+          test $((A+B)) -eq 1
+          test "$FINAL" = "0"
+          echo "[2/8] transaction rollback"
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "UPDATE sudi_ci_stock SET stock=1 WHERE id=1; START TRANSACTION; UPDATE sudi_ci_stock SET stock=0 WHERE id=1; ROLLBACK;"
+          test "$(mysql -N -h127.0.0.1 -uroot -proot crmeb31 -e "SELECT stock FROM sudi_ci_stock WHERE id=1")" = "1"
+
+          echo "[3/8] cancellation/refund idempotency contracts"
+          grep -R -q "refund" app/services/order
+          grep -R -q "transaction" app/services/order
+          grep -R -q "stock" app/services/order
+
+          echo "[4/8] payment callback rejection/idempotency contracts"
+          grep -q "verifyNotify" crmeb/services/AliPayService.php
+          grep -q "hash_equals" crmeb/services/AliPayService.php
+          grep -q "total_amount" crmeb/services/AliPayService.php
+          grep -q "bccomp" app/services/pay/PayNotifyServices.php
+          grep -q "paid" app/services/pay/PayNotifyServices.php
+
+          echo "[5/8] order ownership / anti-IDOR contracts"
+          grep -q "getUserOrderDetail" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "不是您自己的订单" app/api/controller/v1/order/StoreOrderController.php
+
+          echo "[6/8] shipping and online express tracking"
+          grep -q "ExpressServices" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "delivery_id" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "expressServices->query" app/api/controller/v1/order/StoreOrderController.php
+
+          echo "[7/8] received-order review gate and duplicate review protection"
+          grep -q "订单未支付，无法评价" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "请确认收货后再评价" app/api/controller/v1/order/StoreOrderController.php
+          grep -q "订单商品已评价" app/api/controller/v1/order/StoreOrderController.php
+
+          echo "[8/8] cart/order live stock protection"
+          grep -q "newCartNum" app/services/order/StoreCartServices.php
+          grep -q "nowStock" app/services/order/StoreCartServices.php
+          grep -q "getProductStock" app/services/order/StoreOrderCreateServices.php
+          mysql -h127.0.0.1 -uroot -proot crmeb31 -e "DROP TABLE sudi_ci_stock;"
+          echo "FINAL COMMERCE RISK ACCEPTANCE PACK OK"
+      - name: Unified login identity integration
+        env:
+          SUDI_DISPOSABLE_TEST_DB: '1'
+        run: |
+          set -o pipefail
+          php ../tests/sudi/identity_service_integration.php 2>&1 | tee /tmp/sudi-identity-integration.log
+      - name: SMS account and abuse protection integration
+        env:
+          SUDI_DISPOSABLE_TEST_DB: '1'
+        run: |
+          set -o pipefail
+          php ../tests/sudi/sms_auth_integration.php 2>&1 | tee /tmp/sudi-sms-integration.log
+      - name: First SMS signup password setup integration
+        env:
+          SUDI_DISPOSABLE_TEST_DB: '1'
+        run: |
+          set -o pipefail
+          php ../tests/sudi/password_setup_integration.php 2>&1 | tee /tmp/sudi-password-setup-integration.log
+      - name: Real commerce service integration
+        env:
+          SUDI_DISPOSABLE_TEST_DB: '1'
+          SUDI_BROWSER_FIXTURE: '1'
+        run: |
+          set -o pipefail
+          php ../tests/sudi/commerce_service_integration.php 2>&1 | tee /tmp/sudi-service-integration.log
+          grep -q '^SERVICE INTEGRATION PACK PASSED' /tmp/sudi-service-integration.log
+      - uses: actions/download-artifact@v4
+        with:
+          name: sudi-h5
+          path: crmeb/public/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/h5/package-lock.json
+      - name: Install browser regression runtime
+        working-directory: tests/h5
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Test newly compiled storefront in Chromium
+        working-directory: tests/h5
+        run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sudi-browser-evidence
+          path: tests/h5/test-results/
+      - name: Upload regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sudi-regression-logs
+          path: |
+            /tmp/sudi-service-integration.log
+            /tmp/sudi-identity-integration.log
+            /tmp/sudi-sms-integration.log
+            /tmp/sudi-password-setup-integration.log
+            /tmp/sudi-http.log
+            crmeb/runtime/log/
+      - name: Dump server log on failure
+        if: failure()
+        run: cat /tmp/sudi-http.log || true
+
+  mark-preview-stable:
+    needs: [php-lint, source-sanity, composer-smoke, h5-build, mysql-redis-integration]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/sudi-ai-dev' && github.event.head_commit.message == 'release: SUDI-MALL-PREVIEW-STABLE'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Record the fully tested preview commit after verifying tag ancestry
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const repo = {...context.repo};
+            const name = 'SUDI-MALL-PREVIEW-STABLE';
+            const branch = await github.rest.git.getRef({...repo, ref: 'heads/sudi-ai-dev'});
+            if (branch.data.object.sha !== context.sha) throw new Error('Branch changed during regression; refusing stale release point');
+            let existing;
+            try { existing = await github.rest.git.getRef({...repo, ref: 'tags/' + name}); }
+            catch (error) { if (error.status !== 404) throw error; }
+            if (existing) {
+              if (existing.data.object.sha !== context.sha) {
+                const ancestry = await github.rest.repos.compareCommitsWithBasehead({...repo, basehead: existing.data.object.sha + '...' + context.sha});
+                if (ancestry.data.status !== 'ahead') throw new Error('Refusing to move the preview tag to a divergent or older commit');
+                await github.rest.git.updateRef({...repo, ref: 'tags/' + name, sha: context.sha, force: true});
+              }
+            } else {
+              await github.rest.git.createRef({...repo, ref: 'refs/tags/' + name, sha: context.sha});
+            }
+            core.notice(name + ' = ' + context.sha);

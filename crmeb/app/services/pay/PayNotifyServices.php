@@ -14,6 +14,7 @@ namespace app\services\pay;
 use app\services\order\OtherOrderServices;
 use app\services\order\StoreOrderSuccessServices;
 use app\services\user\UserRechargeServices;
+use think\facade\Db;
 
 /**
  * 支付成功回调 所有的异步通知回调都会走下面的三个方法,不在取分微信/支付宝支付回调
@@ -31,16 +32,29 @@ class PayNotifyServices
      * @return bool
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public function wechatProduct(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY)
+    public function wechatProduct(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY, $paidAmount = null)
     {
         try {
             /** @var StoreOrderSuccessServices $services */
             $services = app()->make(StoreOrderSuccessServices::class);
-            $orderInfo = $services->getOne(['order_id' => $order_id]);
-            if (!$orderInfo) return true;
-            if ($orderInfo->paid) return true;
-            return $services->paySuccess($orderInfo->toArray(), $payType, ['trade_no' => $trade_no]);
-        } catch (\Exception $e) {
+            return Db::transaction(function () use ($services, $order_id, $trade_no, $payType, $paidAmount) {
+                // Serialize duplicate callbacks before checking paid or writing
+                // payment events and the capital ledger.
+                $orderInfo = Db::name('store_order')->where('order_id', $order_id)->lock(true)->find();
+                if (!$orderInfo) return false;
+                if (in_array($payType, [PayServices::ALIAPY_PAY, PayServices::WEIXIN_PAY], true)) {
+                    if ($paidAmount === null || !preg_match('/^\d+(?:\.\d{1,2})?$/D', (string)$paidAmount)
+                        || bccomp((string)$orderInfo['pay_price'], (string)$paidAmount, 2) !== 0) {
+                        return false;
+                    }
+                }
+                if ($orderInfo['paid']) return true;
+                if (!$services->paySuccess($orderInfo, $payType, ['trade_no' => $trade_no])) {
+                    throw new \RuntimeException('Payment processing failed');
+                }
+                return true;
+            });
+        } catch (\Throwable $e) {
             return false;
         }
     }
@@ -50,14 +64,28 @@ class PayNotifyServices
      * @param string|null $order_id 订单id
      * @return bool
      */
-    public function wechatUserRecharge(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY)
+    public function wechatUserRecharge(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY, $paidAmount = null)
     {
         try {
             /** @var UserRechargeServices $userRecharge */
             $userRecharge = app()->make(UserRechargeServices::class);
-            if ($userRecharge->be(['order_id' => $order_id, 'paid' => 1])) return true;
-            return $userRecharge->rechargeSuccess($order_id, ['trade_no' => $trade_no, 'pay_type' => $payType]);
-        } catch (\Exception $e) {
+            return Db::transaction(function () use ($userRecharge, $order_id, $trade_no, $payType, $paidAmount) {
+                $orderInfo = Db::name('user_recharge')->where('order_id', $order_id)->lock(true)->find();
+                if (!$orderInfo) return false;
+                if (in_array($payType, [PayServices::ALIAPY_PAY, PayServices::WEIXIN_PAY], true)) {
+                    // price is the amount charged; give_price is a separate bonus.
+                    if ($paidAmount === null || !preg_match('/^\d+(?:\.\d{1,2})?$/D', (string)$paidAmount)
+                        || bccomp((string)$orderInfo['price'], (string)$paidAmount, 2) !== 0) {
+                        return false;
+                    }
+                }
+                if ($orderInfo['paid']) return true;
+                if (!$userRecharge->rechargeSuccess($order_id, ['trade_no' => $trade_no, 'pay_type' => $payType])) {
+                    throw new \RuntimeException('Recharge payment processing failed');
+                }
+                return true;
+            });
+        } catch (\Throwable $e) {
             return false;
         }
     }
@@ -67,16 +95,27 @@ class PayNotifyServices
      * @param string|null $order_id
      * @return bool
      */
-    public function wechatMember(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY)
+    public function wechatMember(string $order_id = null, string $trade_no = null, string $payType = PayServices::WEIXIN_PAY, $paidAmount = null)
     {
         try {
             /** @var OtherOrderServices $services */
             $services = app()->make(OtherOrderServices::class);
-            $orderInfo = $services->getOne(['order_id' => $order_id]);
-            if (!$orderInfo) return true;
-            if ($orderInfo->paid) return true;
-            return $services->paySuccess($orderInfo->toArray(), $payType, ['trade_no' => $trade_no]);
-        } catch (\Exception $e) {
+            return Db::transaction(function () use ($services, $order_id, $trade_no, $payType, $paidAmount) {
+                $orderInfo = Db::name('other_order')->where('order_id', $order_id)->lock(true)->find();
+                if (!$orderInfo) return false;
+                if (in_array($payType, [PayServices::ALIAPY_PAY, PayServices::WEIXIN_PAY], true)) {
+                    if ($paidAmount === null || !preg_match('/^\d+(?:\.\d{1,2})?$/D', (string)$paidAmount)
+                        || bccomp((string)$orderInfo['pay_price'], (string)$paidAmount, 2) !== 0) {
+                        return false;
+                    }
+                }
+                if ($orderInfo['paid']) return true;
+                if (!$services->paySuccess($orderInfo, $payType, ['trade_no' => $trade_no])) {
+                    throw new \RuntimeException('Member payment processing failed');
+                }
+                return true;
+            });
+        } catch (\Throwable $e) {
             return false;
         }
     }

@@ -43,10 +43,17 @@ class NotifyListener
             );
         } else {
             if (isset($notify['attach']) && $notify['attach']) {
+                if ($payType === \app\services\pay\PayServices::WEIXIN_PAY) {
+                    $notify['total_amount'] = \app\services\pay\WechatCallbackGuard::amount($notify, [
+                        (string)sys_config('wechat_appid'), (string)sys_config('routine_appId'),
+                        (string)sys_config('wechat_app_appid'),
+                    ]);
+                    if ($notify['total_amount'] === null) return false;
+                }
                 if (($count = strpos($notify['out_trade_no'], '_')) !== false) {
                     $notify['out_trade_no'] = substr($notify['out_trade_no'], $count + 1);
                 }
-                return (new Hook(PayNotifyServices::class, 'wechat'))->listen($notify['attach'], $notify['out_trade_no'], $notify['transaction_id'], $payType);
+                return (new Hook(PayNotifyServices::class, 'wechat'))->listen($notify['attach'], $notify['out_trade_no'], $notify['transaction_id'], $payType, $notify['total_amount'] ?? null);
             }
 
             if ($notify['attach'] === 'wechat' && isset($notify['out_trade_no'])) {

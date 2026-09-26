@@ -80,7 +80,8 @@
 				let data = {};
 				if (previewThemeId) data.theme_id = previewThemeId;
 				getThemeInfo("category", data).then((res) => {
-					let status = res.data.status;
+					// 苏迪商城统一使用紧凑分类样式，避免 CRMEB DIY 分类造成左侧大面积空白。
+					let status = 1;
 					this.category = status;
 					uni.setStorageSync("is_diy", 1);
 					this.$nextTick((e) => {

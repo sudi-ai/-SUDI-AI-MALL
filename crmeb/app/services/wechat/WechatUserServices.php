@@ -275,6 +275,27 @@ class WechatUserServices extends BaseServices
      */
     public function wechatOauthAfter($data)
     {
+        if (!$data || empty($data[0])) throw new ApiException('微信身份验证失败');
+        // Serialize first login across公众号/小程序 so a shared unionid cannot create two UIDs.
+        $keys = ['openid:' . ($data[5] ?? '') . ':' . $data[0]];
+        if (!empty($data[1]['unionid'])) $keys[] = 'unionid:' . $data[1]['unionid'];
+        $keys = array_map(function ($key) { return 'sudi-id:' . substr(hash('sha256', $key), 0, 48); }, $keys);
+        sort($keys);
+        $held = [];
+        try {
+            foreach ($keys as $key) {
+                $lock = \think\facade\Db::query('SELECT GET_LOCK(?, 5) AS acquired', [$key]);
+                if ((int)($lock[0]['acquired'] ?? 0) !== 1) throw new ApiException('登录繁忙，请稍后重试');
+                $held[] = $key;
+            }
+            return $this->resolveWechatIdentity($data);
+        } finally {
+            foreach (array_reverse($held) as $key) \think\facade\Db::query('SELECT RELEASE_LOCK(?)', [$key]);
+        }
+    }
+
+    private function resolveWechatIdentity($data)
+    {
         if (!$data) throw new ApiException('用户信息获取失败，请刷新页面重试');
         [$openid, $wechatInfo, $spreadId, $agent_id, $login_type, $userType] = $data;
         /** @var UserServices $userServices */
@@ -315,18 +336,24 @@ class WechatUserServices extends BaseServices
 
         $userInfo = [];
         $uid = 0;
-        if (isset($wechatInfo['phone']) && $wechatInfo['phone']) {
-            $userInfo = $userServices->getOne(['phone' => $wechatInfo['phone'], 'is_del' => 0]);
+        if (!$openid || empty($wechatInfo['openid']) || $openid !== $wechatInfo['openid']) {
+            throw new ApiException('微信身份验证失败');
         }
-        if (!$userInfo) {
-            if (isset($wechatInfo['unionid']) && $wechatInfo['unionid']) {
-                $uid = $this->dao->value(['unionid' => $wechatInfo['unionid'], 'is_del' => 0], 'uid');
-                if ($uid) {
-                    $userInfo = $userServices->getOne(['uid' => $uid, 'is_del' => 0]);
-                }
-            } else {
-                $userInfo = $this->getAuthUserInfo($openid, $userType);
-            }
+        // Resolve every verified identity; conflicting UIDs must never be silently merged.
+        $identityUids = $this->dao->getColumn(['openid' => $openid, 'user_type' => $userType, 'is_del' => 0], 'uid');
+        if (!empty($wechatInfo['unionid'])) {
+            $identityUids = array_merge($identityUids, $this->dao->getColumn(['unionid' => $wechatInfo['unionid'], 'is_del' => 0], 'uid'));
+        }
+        if (isset($wechatInfo['phone']) && $wechatInfo['phone']) {
+            if ($userServices->count(['phone' => $wechatInfo['phone'], 'is_del' => 0]) > 1) throw new ApiException('手机号存在账号冲突，请联系客服');
+            $userInfo = $userServices->getOne(['phone' => $wechatInfo['phone'], 'is_del' => 0]);
+            if ($userInfo) $identityUids[] = (int)$userInfo['uid'];
+        }
+        $identityUids = array_values(array_unique(array_map('intval', $identityUids)));
+        if (count($identityUids) > 1) throw new ApiException('微信与手机号已绑定不同账号，请联系客服核验');
+        if ($identityUids) {
+            $userInfo = $userServices->getOne(['uid' => $identityUids[0], 'is_del' => 0]);
+            if (!$userInfo || !$userInfo['status']) throw new ApiException('用户不存在或已禁用');
         }
         if ($userInfo) {
             $uid = (int)$userInfo['uid'];
@@ -340,7 +367,7 @@ class WechatUserServices extends BaseServices
             $wechatUser = $this->dao->getOne(['uid' => $uid, 'user_type' => $userType, 'is_del' => 0]);
             //判断获取到的 openid 和当前登录传入的 openid 不一致时，不更新用户信息
             if ($wechatUser && $wechatUser['openid'] != $wechatInfo['openid']) {
-                return $userInfo;
+                throw new ApiException('该账号已绑定其他微信');
             }
             /** @var LoginServices $loginService */
             $loginService = app()->make(LoginServices::class);

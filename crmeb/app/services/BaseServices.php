@@ -90,7 +90,7 @@ abstract class BaseServices
      * @return array
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public function createToken(int $id, $type, $pwd = '')
+    public function createToken(int $id, $type, $pwd = '', array $tokenClaims = [])
     {
         /** @var JwtAuth $jwtAuth */
         $jwtAuth = app()->make(JwtAuth::class);
@@ -117,7 +117,12 @@ abstract class BaseServices
                 'user_type' => $user['user_type']
             ]]);
         }
-        return $jwtAuth->createToken($id, $type, ['pwd' => md5($pwd)]);
+        // Only the signup nonce is extensible; authentication claims stay server-owned.
+        $params = ['pwd' => md5($pwd)];
+        if (isset($tokenClaims['password_setup_nonce'])) {
+            $params['password_setup_nonce'] = (string)$tokenClaims['password_setup_nonce'];
+        }
+        return $jwtAuth->createToken($id, $type, $params);
     }
 
     /**

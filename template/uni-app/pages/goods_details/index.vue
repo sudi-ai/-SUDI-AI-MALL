@@ -77,6 +77,15 @@
             @openModal="openModal"
             @goActivity="goActivity"
           ></PageDesign>
+          <view class="sudi-ai-tools" v-if="storeInfo && storeInfo.id">
+            <view class="sudi-ai-tools-title">苏迪 AI 购前助手</view>
+            <view class="sudi-ai-tools-actions">
+              <button class="sudi-ai-tool" @click="openAiSize">AI 尺码</button>
+              <button class="sudi-ai-tool" @click="openAiOutfit">AI 搭配</button>
+              <button class="sudi-ai-tool" @click="openAiCustomer">问 AI 客服</button>
+            </view>
+          </view>
+          <view class="sudi-detail-bottom-space"></view>
         </view>
         <view class="uni-p-b-98"></view>
       </view>
@@ -97,13 +106,6 @@
         @goBuy="goBuy"
         @share="listenerActionSheet"
       ></productBottom>
-      <shareRedPackets
-        :sharePacket="sharePacket"
-        @listenerActionSheet="listenerActionSheet"
-        @closeChange="closeChange"
-        :showAnimate="showAnimate"
-        @boxStatus="boxStatus"
-      ></shareRedPackets>
       <!-- 组件 -->
       <productWindow
         :attr="attr"
@@ -280,7 +282,6 @@ import cusPreviewImg from "@/components/cusPreviewImg/index.vue";
 import swiperPrevie from "@/components/cusPreviewImg/swiperPrevie.vue";
 import couponListWindow from "@/components/couponListWindow";
 import productWindow from "@/components/productWindow";
-import shareRedPackets from "@/components/shareRedPackets";
 import kefuIcon from "@/components/kefuIcon";
 import menuIcon from "@/components/menuIcon.vue";
 import { updateURLParameter } from "@/utils";
@@ -304,7 +305,6 @@ export default {
   components: {
     couponListWindow,
     productWindow,
-    shareRedPackets,
     kefuIcon,
     menuIcon,
     cusPreviewImg,
@@ -553,6 +553,35 @@ export default {
     uni.$emit("scroll");
   },
   methods: {
+    openAiSize() {
+      if (!this.isLogin) {
+        toLogin();
+        return;
+      }
+      const chart = encodeURIComponent(JSON.stringify(this.buildAiSizeChart()));
+      uni.navigateTo({ url: "/pages/sudi_ai/size?product_id=" + this.id + "&chart=" + chart });
+    },
+    openAiOutfit() {
+      const name = encodeURIComponent(this.storeInfo.store_name || "");
+      uni.navigateTo({ url: "/pages/sudi_ai/outfit?product_id=" + this.id + "&name=" + name });
+    },
+    openAiCustomer() {
+      if (!this.isLogin) {
+        toLogin();
+        return;
+      }
+      uni.navigateTo({ url: "/pages/sudi_ai/customer?product_id=" + this.id });
+    },
+    buildAiSizeChart() {
+      const attrs = this.attr && Array.isArray(this.attr.productAttr) ? this.attr.productAttr : [];
+      const sizeAttr = attrs.find((item) => {
+        const name = String(item.attr_name || item.name || "").toLowerCase();
+        return name.indexOf("尺码") !== -1 || name === "size";
+      });
+      if (!sizeAttr) return [];
+      const values = sizeAttr.attr_values || sizeAttr.attr_value || [];
+      return (Array.isArray(values) ? values : []).slice(0, 30).map((size) => ({ size: String(size) }));
+    },
     // 操作菜单
     moreNav() {
       this.currentPage = !this.currentPage;
@@ -1921,4 +1950,12 @@ action-sheet-item {
 .delete-line {
   text-decoration: line-through;
 }
+</style>
+
+<style scoped>
+.sudi-ai-tools{margin:20rpx;padding:24rpx;background:#fff;border-radius:18rpx}
+.sudi-detail-bottom-space{height:160rpx;height:calc(160rpx + env(safe-area-inset-bottom));}
+.sudi-ai-tools-title{font-size:28rpx;font-weight:700;color:#222;margin-bottom:18rpx}
+.sudi-ai-tools-actions{display:flex;gap:14rpx}
+.sudi-ai-tool{flex:1;margin:0;padding:0;height:70rpx;line-height:70rpx;border-radius:999rpx;background:#fff0f4;color:#ff3366;font-size:24rpx}
 </style>

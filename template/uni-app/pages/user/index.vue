@@ -33,7 +33,6 @@
       @changeBarg="changeBarg"
       @goDetail="goDetail"
     ></PageDesign>
-    <image :src="copyRightPic" alt="" class="support"></image>
     <editUserModal
       :isShow="editModal"
       @closeEdit="closeEdit"
@@ -356,7 +355,17 @@ export default {
       let data = {};
       if (previewThemeId) data.theme_id = previewThemeId;
       getThemeInfo("user", data).then((res) => {
-        this.currentDiyData = res.data;
+        const diy = res.data || {};
+        const blocked = ["newVip","bargain","combination","presale","pointsMall","liveBroadcast","promotionList","signIn","articleList"];
+        if (diy.value && typeof diy.value === "object") {
+          const clean = {};
+          Object.keys(diy.value).forEach((key) => {
+            const item = diy.value[key];
+            if (item && !blocked.includes(item.name)) clean[key] = item;
+          });
+          diy.value = clean;
+        }
+        this.currentDiyData = diy;
       });
     },
     getWechatuserinfo() {

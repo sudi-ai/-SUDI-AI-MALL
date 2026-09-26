@@ -20,6 +20,7 @@ use crmeb\services\sms\BaseSms;
 use Darabonba\OpenApi\Models\Config as AliConfig;
 use think\exception\ValidateException;
 use think\facade\Config;
+use think\facade\Log;
 
 
 /**
@@ -56,6 +57,9 @@ class Aliyun extends BaseSms
         if (empty($phone)) {
             return $this->setError('电话号码不能为空');
         }
+        if (!$this->AccessKeyId || !$this->AccessKeySecret || !$this->SignName || !$templateId) {
+            throw new ApiException('手机验证码服务尚未配置完成，请联系商城客服');
+        }
 
         $config = new AliConfig([
             "accessKeyId" => $this->AccessKeyId,
@@ -73,11 +77,20 @@ class Aliyun extends BaseSms
             "templateCode" => $templateId,
             "templateParam" => json_encode($data),
         ]);
-        $runtime = new RuntimeOptions([]);
+        $runtime = new RuntimeOptions([
+            'connectTimeout' => 5000,
+            'readTimeout' => 10000,
+            // A timed-out send may already be charged; never retry automatically.
+            'autoretry' => false,
+        ]);
         try {
             // 复制代码运行请自行打印 API 的返回值
             $resp = $client->sendSmsWithOptions($sendSmsRequest, $runtime);
-            if (isset($resp) && $resp->body->code !== 'OK') {
+            if (!isset($resp->body->code)) {
+                throw new ApiException('短信平台响应异常');
+            }
+            if ($resp->body->code !== 'OK') {
+                Log::warning('Aliyun SMS rejected', ['code' => $resp->body->code, 'request_id' => $resp->body->requestId ?? '']);
                 throw new ApiException('【阿里云平台错误提示】：' . $resp->body->message);
             }
             return [

@@ -51,9 +51,8 @@ class DivisionController
             ['division_invite', 0],
             ['images', []]
         ]);
-        $verifyCode = CacheService::get('code_' . $data['phone']);
-        if ($verifyCode != $data['code']) return app('json')->fail('验证码错误');
         if ($data['division_invite'] == 0) return app('json')->fail('请填写邀请码');
+        app()->make(\app\services\user\SmsCodeServices::class)->consume((string)$data['phone'], $data['code'], (string)$request->ip());
         $this->services->applyAgent($data, $id);
         return app('json')->success('提交成功');
     }

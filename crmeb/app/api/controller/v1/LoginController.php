@@ -17,6 +17,8 @@ use app\services\wechat\WechatServices;
 use think\facade\Config;
 use crmeb\services\CacheService;
 use app\services\user\LoginServices;
+use app\services\user\SmsCodeServices;
+use app\services\user\PasswordSetupServices;
 use think\exception\ValidateException;
 use app\api\validate\user\RegisterValidates;
 
@@ -80,7 +82,7 @@ class LoginController
     {
         $unique = password_hash(uniqid(true), PASSWORD_BCRYPT);
         CacheService::set('sms.key.' . $unique, 0, 300);
-        $time = sys_config('verify_expire_time', 1);
+        $time = app()->make(SmsCodeServices::class)->expiryMinutes(sys_config('verify_expire_time', 1));
         return app('json')->success(['key' => $unique, 'expire_time' => $time]);
     }
 
@@ -142,37 +144,6 @@ class LoginController
         $keyName = 'sms.key.' . $key;
         if (!CacheService::has($keyName)) return app('json')->fail('发送验证码失败,请刷新页面重新获取');
 
-        // 验证限制
-        // 验证码每分钟发送上限
-        $maxMinuteCountKey = 'sms.minute.' . $phone . date('YmdHi');
-        $minuteCount = 0;
-        if (CacheService::has($maxMinuteCountKey)) {
-            $minuteCount = CacheService::get($maxMinuteCountKey) ?? 0;
-            $maxMinuteCount = Config::get('sms.maxMinuteCount', 5);
-            if ($minuteCount > $maxMinuteCount) return app('json')->fail('同一手机号每分钟最多发送' . $maxMinuteCount . '条');
-
-        }
-
-        // 验证码单个手机每日发送上限
-        $maxPhoneCountKey = 'sms.phone.' . $phone . '.' . date('Ymd');
-        $phoneCount = 0;
-        if (CacheService::has($maxPhoneCountKey)) {
-            $phoneCount = CacheService::get($maxPhoneCountKey) ?? 0;
-            $maxPhoneCount = Config::get('sms.maxPhoneCount', 20);
-            if ($phoneCount > $maxPhoneCount) return app('json')->fail('同一手机号每天最多发送' . $maxPhoneCount . '条');
-
-        }
-
-        // 验证码单个手机每日发送上限
-        $maxIpCountKey = 'sms.ip.' . app()->request->ip() . '.' . date('Ymd');
-        $ipCount = 0;
-        if (CacheService::has($maxIpCountKey)) {
-            $ipCount = CacheService::get($maxIpCountKey) ?? 0;
-            $maxIpCount = Config::get('sms.maxIpCount', 50);
-            if ($ipCount > $maxIpCount) return app('json')->fail('同一IP每天最多发送' . $maxIpCount . '条');
-
-        }
-
         //二次验证
         try {
             aj_captcha_check_two($captchaType, $captchaVerification);
@@ -188,10 +159,6 @@ class LoginController
         $time = sys_config('verify_expire_time', 1);
         $smsCode = $this->services->verify($services, $phone, $type, $time);
         if ($smsCode) {
-            CacheService::set('code_' . $phone, $smsCode, $time * 60);
-            CacheService::set($maxMinuteCountKey, (int)$minuteCount + 1, 61);
-            CacheService::set($maxPhoneCountKey, (int)$phoneCount + 1, 86401);
-            CacheService::set($maxIpCountKey, (int)$ipCount + 1, 86401);
             return app('json')->success('验证码发送成功');
         } else {
             return app('json')->fail('验证码发送失败');
@@ -218,13 +185,8 @@ class LoginController
         if (strlen(trim($password)) < 6 || strlen(trim($password)) > 32) {
             return app('json')->fail('账号密码必须是在6到32位之间');
         }
-        $verifyCode = CacheService::get('code_' . $account);
-        if (!$verifyCode)
-            return app('json')->fail('请先获取验证码');
-        $verifyCode = substr($verifyCode, 0, 6);
-        if ($verifyCode != $captcha)
-            return app('json')->fail('验证码错误');
         if (md5($password) == md5('123456')) return app('json')->fail('密码太过简单，请输入较为复杂的密码');
+        app()->make(SmsCodeServices::class)->consume((string)$account, $captcha, (string)$request->ip());
 
         $registerStatus = $this->services->register($account, $password, $spread, 'h5');
         if ($registerStatus) {
@@ -252,14 +214,8 @@ class LoginController
         if (strlen(trim($password)) < 6 || strlen(trim($password)) > 32) {
             return app('json')->fail('账号密码必须是在6到32位之间');
         }
-        $verifyCode = CacheService::get('code_' . $account);
-        if (!$verifyCode)
-            return app('json')->fail('请先获取验证码');
-        $verifyCode = substr($verifyCode, 0, 6);
-        if ($verifyCode != $captcha) {
-            return app('json')->fail('验证码错误');
-        }
         if ($password == '123456') return app('json')->fail('密码太过简单，请输入较为复杂的密码');
+        app()->make(SmsCodeServices::class)->consume((string)$account, $captcha, (string)$request->ip());
         $resetStatus = $this->services->reset($account, $password);
         if ($resetStatus) return app('json')->success('修改成功');
         return app('json')->fail('修改失败');
@@ -285,21 +241,23 @@ class LoginController
         }
 
         //验证验证码
-        $verifyCode = CacheService::get('code_' . $phone);
-        if (!$verifyCode)
-            return app('json')->fail('请先获取验证码');
-        $verifyCode = substr($verifyCode, 0, 6);
-        if ($verifyCode != $captcha) {
-            return app('json')->fail('验证码错误');
-        }
+        app()->make(SmsCodeServices::class)->consume((string)$phone, $captcha, (string)$request->ip());
         $user_type = $request->getFromType() ? $request->getFromType() : 'h5';
         $token = $this->services->mobile($phone, $spread, $user_type, $agent_id);
         if ($token) {
-            CacheService::delete('code_' . $phone);
             return app('json')->success('登录成功', $token);
         } else {
             return app('json')->fail('退出成功');
         }
+    }
+
+    public function passwordSetup(Request $request, PasswordSetupServices $setup)
+    {
+        $tokenData = $request->tokenData();
+        // Password bytes must not be trimmed or passed through content filters.
+        $setup->setup((int)$request->uid(), (string)($tokenData['token'] ?? ''),
+            $request->post('password', null, null), $request->post('password_confirm', null, null));
+        return app('json')->success('密码设置成功');
     }
 
     /**
@@ -350,16 +308,9 @@ class LoginController
             return app('json')->fail('请输入手机号');
         }
         //验证验证码
-        $verifyCode = CacheService::get('code_' . $phone);
-        if (!$verifyCode)
-            return app('json')->fail('请先获取验证码');
-        $verifyCode = substr($verifyCode, 0, 6);
-        if ($verifyCode != $captcha) {
-            return app('json')->fail('验证码错误');
-        }
+        app()->make(SmsCodeServices::class)->consume((string)$phone, $captcha, (string)$request->ip());
         $re = $this->services->bindind_phone($phone, $key);
         if ($re) {
-            CacheService::delete('code_' . $phone);
             return app('json')->success('绑定成功', $re);
         } else
             return app('json')->fail('绑定失败');
@@ -387,19 +338,11 @@ class LoginController
         } catch (ValidateException $e) {
             return app('json')->fail($e->getError());
         }
-        if (!$step) {
-            //验证验证码
-            $verifyCode = CacheService::get('code_' . $phone);
-            if (!$verifyCode)
-                return app('json')->fail('请先获取验证码');
-            $verifyCode = substr($verifyCode, 0, 6);
-            if ($verifyCode != $captcha)
-                return app('json')->fail('验证码错误');
-        }
+        // Every binding request needs proof of phone ownership, including confirmation steps.
+        app()->make(SmsCodeServices::class)->consume((string)$phone, $captcha, (string)$request->ip());
         $uid = (int)$request->uid();
         $re = $this->services->userBindindPhone($uid, $phone, $step);
         if ($re) {
-            CacheService::delete('code_' . $phone);
             return app('json')->success($re['msg'] ?? '绑定成功', $re['data'] ?? []);
         } else
             return app('json')->fail('绑定失败');
@@ -419,16 +362,10 @@ class LoginController
             return app('json')->fail($e->getError());
         }
         //验证验证码
-        $verifyCode = CacheService::get('code_' . $phone);
-        if (!$verifyCode)
-            return app('json')->fail('请先获取验证码');
-        $verifyCode = substr($verifyCode, 0, 6);
-        if ($verifyCode != $captcha)
-            return app('json')->fail('验证码错误');
+        app()->make(SmsCodeServices::class)->consume((string)$phone, $captcha, (string)$request->ip());
         $uid = (int)$request->uid();
         $re = $this->services->updateBindindPhone($uid, $phone);
         if ($re) {
-            CacheService::delete('code_' . $phone);
             return app('json')->success($re['msg'] ?? '修改成功', $re['data'] ?? []);
         } else
             return app('json')->fail('修改失败');
@@ -474,14 +411,7 @@ class LoginController
                 return app('json')->fail('请输入验证码');
             }
             //验证验证码
-            $verifyCode = CacheService::get('code_' . $phone);
-            if (!$verifyCode)
-                return app('json')->fail('请先获取验证码');
-            $verifyCode = substr($verifyCode, 0, 6);
-            if ($verifyCode != $captcha) {
-                CacheService::delete('code_' . $phone);
-                return app('json')->fail('验证码错误');
-            }
+            app()->make(SmsCodeServices::class)->consume((string)$phone, $captcha, (string)$request->ip());
         } else {
             if (!$openId) {
                 return app('json')->fail('参数错误');
@@ -548,10 +478,7 @@ class LoginController
      */
     public function remoteRegister(Request $request)
     {
-        [$remote_token] = $request->getMore([
-            ['remote_token', ''],
-        ], true);
-        if ($remote_token == '') return app('json')->success('登录失败', ['get_remote_login_url' => sys_config('get_remote_login_url')]);
-        return app('json')->success('登录成功', $this->services->remoteRegister($remote_token));
+        // Legacy remote tokens were decoded without signature verification.
+        return app('json')->fail('远程免验证登录未启用，请使用商城登录');
     }
 }

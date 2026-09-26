@@ -95,14 +95,7 @@ class WechatController
                 return app('json')->fail('请输入验证码');
             }
             //验证验证码
-            $verifyCode = CacheService::get('code_' . $phone);
-            if (!$verifyCode)
-                return app('json')->fail('请先获取验证码');
-            $verifyCode = substr($verifyCode, 0, 6);
-            if ($verifyCode != $captcha) {
-                CacheService::delete('code_' . $phone);
-                return app('json')->fail('验证码错误');
-            }
+            app()->make(\app\services\user\SmsCodeServices::class)->consume((string)$phone, $captcha, (string)request()->ip());
         }
         $token = $this->services->appAuth($userInfo, $phone);
         if ($token) {
