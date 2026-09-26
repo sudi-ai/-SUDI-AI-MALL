@@ -46,6 +46,8 @@ jobs:
           php -l tests/sudi/email_auth_contract_test.php
           php -l tests/sudi/identity_service_integration.php
           php -l tests/sudi/payment_auxiliary_test.php
+          php -l tests/sudi/alipay_page_test.php
+          php -l crmeb/app/services/pay/OrderPayServices.php
           php -l crmeb/app/api/controller/v1/LoginController.php
           php -l crmeb/app/services/wechat/WechatServices.php
           php -l crmeb/app/services/wechat/WechatUserServices.php
@@ -106,6 +108,8 @@ jobs:
         run: php think list >/tmp/sudi-think-list.txt
       - name: Actual Alipay RSA2 callback verification
         run: php ../tests/sudi/alipay_signature_test.php
+      - name: Alipay page checkout isolation and signing
+        run: php ../tests/sudi/alipay_page_test.php
       - name: Actual WeChat v2 and v3 signature verification
         run: php ../tests/sudi/wechat_signature_test.php
       - name: Recharge and membership payment safety

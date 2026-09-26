@@ -42,6 +42,7 @@ class AliPayService
         'alipayCertPath' => '',//支付宝证书路径(可选)
         'alipayRootCertPath' => '',//支付宝根证书路径(可选)
         'merchantCertPath' => '',//商户证书路径(可选)
+        'webMode' => 'wap',// page uses an existing电脑网站支付 contract for the H5 storefront
     ];
 
     /**
@@ -69,6 +70,7 @@ class AliPayService
                 'alipayCertPath' => $this->getPemPath('alipay_cert_path'),
                 'alipayRootCertPath' => $this->getPemPath('alipay_root_cert_path'),
                 'merchantCertPath' => $this->getPemPath('merchant_cert_path'),
+                'webMode' => (string)\think\facade\Env::get('alipay.web_mode', 'wap'),
             ];
         }
         $this->config = array_merge($this->config, $config);
@@ -163,7 +165,10 @@ class AliPayService
     {
         $title = trim($title);
         try {
-            if ($isCode) {
+            if (!$isCode && !request()->isApp() && $this->config['webMode'] === 'page') {
+                $result = Factory::payment()->page()->optional('passback_params', $passbackParams)
+                    ->pay($title, $orderId, $totalAmount, $returnUrl);
+            } else if ($isCode) {
                 //二维码支付
                 $result = Factory::payment()->faceToFace()->optional('passback_params', $passbackParams)->precreate($title, $orderId, $totalAmount);
             } else if (request()->isApp()) {
@@ -276,7 +281,7 @@ class AliPayService
             Log::error('支付宝回调APPID校验失败，订单号：' . $postOrder['out_trade_no']);
             return 'fail';
         }
-        if (in_array($paramInfo['trade_status'], ['TRADE_SUCCESS', 'TRADE_FINISHED']) && $this->verifyNotify($paramInfo)) {
+        if (in_array($postOrder['trade_status'], ['TRADE_SUCCESS', 'TRADE_FINISHED']) && $this->verifyNotify($paramInfo)) {
             try {
                 if ($notifyFn((object)$postOrder)) {
                     return 'success';
