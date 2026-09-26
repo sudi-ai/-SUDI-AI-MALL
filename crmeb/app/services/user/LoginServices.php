@@ -99,7 +99,7 @@ class LoginServices extends BaseServices
     private function findLoginUser(string $identity)
     {
         $where = ['account|phone|email' => $identity, 'is_del' => 0];
-        if ($this->dao->count($where) > 1) throw new ApiException('账号存在绑定冲突，请联系客服处理');
+        if (Db::name('user')->where($where)->count() > 1) throw new ApiException('账号存在绑定冲突，请联系客服处理');
         return $this->dao->getOne($where);
     }
 
