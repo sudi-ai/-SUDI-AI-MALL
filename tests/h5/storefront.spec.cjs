@@ -197,12 +197,15 @@ test('brand catalog keeps all styles accessible and encodes category and search 
   await expect(page.locator('.nu-category-link')).toHaveCount(34);
   await page.getByText('婚纱', {exact: true}).click();
   await expect(page).toHaveURL(/sid=1033/);
+  await expect(page.locator('.productList .nav .item').first()).toHaveText('婚纱');
   await page.goto('/pages/goods_cate/goods_cate');
   await expect(page.locator('.nu-category-link')).toHaveCount(8);
   await page.locator('.nu-catalog-search input').fill('衬衫 & 裙');
+  const searched = page.waitForRequest(r => r.url().includes('/api/products') && new URL(r.url()).searchParams.get('keyword') === '衬衫 & 裙');
   await page.locator('.nu-search-submit').click();
   await expect(page).toHaveURL(/goods_list\/index\?searchValue=/);
-  expect(new URL(page.url()).searchParams.get('searchValue')).toBe('衬衫 & 裙');
+  await searched;
+  await expect(page.locator('.productList .search input')).toHaveValue('衬衫 & 裙');
 });
 
 test('merchant product form previews two colors by three sizes', async ({page}) => {
