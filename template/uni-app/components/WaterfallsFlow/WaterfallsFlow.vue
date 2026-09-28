@@ -190,12 +190,30 @@ $grid-gap: 10px;
 
 .wf-page {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 	grid-gap: $grid-gap;
 }
 .wf-item {
-	width: calc((100vw - 2 * #{$page-padding} - #{$grid-gap}) / 2);
+	width: 100%;
+	min-width: 0;
 	padding-bottom: $grid-gap;
+}
+
+/* H5 desktop: keep mobile waterfall intact, but prevent cards stretching to full monitor width. */
+@media screen and (min-width: 769px) {
+	.wf-page {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 18px;
+	}
+	.wf-item {
+		width: 100%;
+		max-width: none;
+	}
+}
+@media screen and (min-width: 1200px) {
+	.wf-page {
+		gap: 22px;
+	}
 }
 .wf-page1 .wf-item {
 	margin-top: 20rpx;

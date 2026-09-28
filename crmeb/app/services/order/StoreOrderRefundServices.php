@@ -122,6 +122,19 @@ class StoreOrderRefundServices extends BaseServices
     public function agreeRefund(int $id, array $refundData)
     {
         $order = $this->transaction(function () use ($id, $refundData) {
+            // Lock the refund record before checking its state. A controller's
+            // earlier check is not sufficient when requests arrive together.
+            $lockedRefund = Db::name('store_order_refund')->where('id', $id)->lock(true)->find();
+            if (!$lockedRefund) throw new AdminException('数据不存在');
+            if ($lockedRefund['is_cancel'] || $lockedRefund['is_del']
+                || !in_array((int)$lockedRefund['refund_type'], [1, 2, 5], true)) {
+                throw new AdminException('售后订单状态不支持该操作');
+            }
+            $refundedPrice = bcadd((string)$lockedRefund['refunded_price'], (string)$refundData['refund_price'], 2);
+            if (bccomp((string)$refundData['refund_price'], '0', 2) < 0
+                || bccomp($refundedPrice, (string)$lockedRefund['refund_price'], 2) > 0) {
+                throw new AdminException('退款金额大于可退金额');
+            }
             //退款拆分
             $orderRefundInfo = $this->dao->get($id);
             if (!$orderRefundInfo) throw new AdminException('数据不存在');
@@ -162,7 +175,7 @@ class StoreOrderRefundServices extends BaseServices
             }
 
             //回退库存
-            if ($splitOrderInfo['status'] == 0) {
+            if ($splitOrderInfo['status'] == 0 || (int)$lockedRefund['refund_type'] === 5) {
                 /** @var StoreOrderStatusServices $services */
                 $services = app()->make(StoreOrderStatusServices::class);
                 if (!$services->count(['oid' => $splitOrderInfo['id'], 'change_type' => 'refund_price'])) {
@@ -175,8 +188,7 @@ class StoreOrderRefundServices extends BaseServices
             //退金额
             if ($refundData['refund_price'] > 0) {
                 if (!isset($refundData['refund_id']) || !$refundData['refund_id']) {
-                    mt_srand();
-                    $refundData['refund_id'] = $splitOrderInfo['order_id'] . rand(100, 999);
+                    $refundData['refund_id'] = 'sudi_refund_' . $id;
                 }
                 if ($splitOrderInfo['pid'] > 0) {//子订单
                     $refundOrder = $this->storeOrderServices->get((int)$splitOrderInfo['pid']);
@@ -256,7 +268,8 @@ class StoreOrderRefundServices extends BaseServices
                 'refund_price' => $refundData['refund_price'],
             ], 'id');
             $splitOrderInfo = $this->storeOrderServices->get($splitOrderInfo['id']);
-            $this->dao->update($id, ['store_order_id' => $splitOrderInfo['id']]);
+            $this->dao->update($id, ['store_order_id' => $splitOrderInfo['id'],
+                'refund_type' => 6, 'refunded_price' => $refundedPrice, 'refunded_time' => time()]);
             if ($otherOrder['id'] != 0 && $orderInfo['id'] != $otherOrder['id']) {//拆分生成新订单了
                 //修改原订单还在申请的退款单
                 $this->dao->update(['store_order_id' => $orderInfo['id']], ['store_order_id' => $otherOrder['id']]);
@@ -316,13 +329,16 @@ class StoreOrderRefundServices extends BaseServices
      */
     public function agreeExpress($id)
     {
-        $order = $this->dao->get($id, ['refund_type']);
-        if (!$order) throw new AdminException('数据不存在');
-        if ($order['refund_type'] == 4) {
+        return $this->transaction(function () use ($id) {
+            $order = Db::name('store_order_refund')->where('id', $id)->lock(true)->find();
+            if (!$order) throw new AdminException('数据不存在');
+            if ($order['is_cancel'] || $order['is_del'] || !in_array((int)$order['refund_type'], [2, 4], true)) {
+                throw new AdminException('售后订单状态不支持该操作');
+            }
+            if ((int)$order['refund_type'] === 4) return true;
+            $this->dao->update($id, ['refund_type' => 4], 'id');
             return true;
-        }
-        $this->dao->update($id, ['refund_type' => 4], 'id');
-        return true;
+        });
     }
 
     /**
@@ -917,6 +933,10 @@ class StoreOrderRefundServices extends BaseServices
     {
         $this->transaction(function () use ($data) {
             $id = $data['id'];
+            $refund = Db::name('store_order_refund')->where('id', $id)->lock(true)->find();
+            if (!$refund || $refund['is_cancel'] || $refund['is_del'] || (int)$refund['refund_type'] !== 4) {
+                throw new ApiException('当前状态不能提交退货物流');
+            }
             $data['refund_type'] = 5;
             /** @var StoreOrderStatusServices $statusService */
             $statusService = app()->make(StoreOrderStatusServices::class);
@@ -954,83 +974,87 @@ class StoreOrderRefundServices extends BaseServices
      */
     public function applyRefund(int $id, int $uid, $order = [], array $cart_ids = [], int $refundType = 0, float $refundPrice = 0.00, array $refundData = [], $isPink = 0)
     {
-        /** 查询订单是否存在 */
-        /** @var StoreOrderServices $orderServices */
-        $orderServices = app()->make(StoreOrderServices::class);
-        if (!$order) {
-            $order = $orderServices->get($id);
-        }
-        if (!$order) {
-            throw new ApiException('订单不存在');
-        }
-
-        $is_now = $this->dao->getCount([
-            ['store_order_id', '=', $id],
-            ['refund_type', 'in', [1, 2, 4, 5]],
-            ['is_cancel', '=', 0],
-            ['is_del', '=', 0],
-            ['is_pink_cancel', '=', 0]
-        ]);
-        if ($is_now) throw new ApiException('存在待处理退款单');
-
-        $refund_num = $order['total_num'];
-        $refund_price = $order['pay_price'];
         /** @var StoreOrderCartInfoServices $storeOrderCartInfoServices */
         $storeOrderCartInfoServices = app()->make(StoreOrderCartInfoServices::class);
-        //退部分
-        $cartInfo = [];
-        $cartInfos = $storeOrderCartInfoServices->getCartColunm(['oid' => $id], 'id,cart_id,cart_num,refund_num,cart_info');
-        if ($cart_ids) {
-            $cartInfo = array_combine(array_column($cartInfos, 'cart_id'), $cartInfos);
-            $refund_num = 0;
-            foreach ($cart_ids as $cart) {
-                if ($cart['cart_num'] + $cartInfo[$cart['cart_id']]['refund_num'] > $cartInfo[$cart['cart_id']]['cart_num']) {
-                    throw new ApiException('退款件数大于订单件数');
+        // Every refund request for an order serializes on this InnoDB order row.
+        // Read current state and create the request while holding the same lock.
+        $res = $this->transaction(function () use ($id, $uid, $cart_ids, $refundType, &$refundData, $isPink, $storeOrderCartInfoServices, &$order) {
+            $lockedOrder = Db::name('store_order')->where('id', $id)->lock(true)->find();
+            if (!$lockedOrder || (int)$lockedOrder['uid'] !== $uid) throw new ApiException('订单不存在');
+            $order = $lockedOrder;
+            if (!(int)$order['paid']) throw new ApiException('订单未支付，无法退款');
+            if ((int)$order['refund_status'] === 2 || (int)$order['status'] < 0) throw new ApiException('订单状态不支持退款');
+
+            $is_now = $this->dao->getCount([
+                ['store_order_id', '=', $id],
+                ['refund_type', 'in', [1, 2, 4, 5]],
+                ['is_cancel', '=', 0],
+                ['is_del', '=', 0],
+                ['is_pink_cancel', '=', 0]
+            ]);
+            if ($is_now) throw new ApiException('存在待处理退款单');
+
+            $refund_num = $order['total_num'];
+            $refund_price = $order['pay_price'];
+            //退部分
+            $cartInfo = [];
+            $cartInfos = $storeOrderCartInfoServices->getCartColunm(['oid' => $id], 'id,cart_id,cart_num,refund_num,cart_info');
+            if ($cart_ids) {
+                $cartInfo = array_combine(array_column($cartInfos, 'cart_id'), $cartInfos);
+                $refund_num = 0;
+                foreach ($cart_ids as $cart) {
+                    if ($cart['cart_num'] + $cartInfo[$cart['cart_id']]['refund_num'] > $cartInfo[$cart['cart_id']]['cart_num']) {
+                        throw new ApiException('退款件数大于订单件数');
+                    }
+                    $refund_num = bcadd((string)$refund_num, (string)$cart['cart_num'], 0);
                 }
-                $refund_num = bcadd((string)$refund_num, (string)$cart['cart_num'], 0);
-            }
-            //总共申请多少件
-            $total_num = array_sum(array_column($cart_ids, 'cart_num'));
-            if ($total_num < $order['total_num']) {
-                /** @var StoreOrderSplitServices $storeOrderSpliteServices */
-                $storeOrderSpliteServices = app()->make(StoreOrderSplitServices::class);
-                $cartInfos = $storeOrderSpliteServices->getSplitOrderCartInfo($id, $cart_ids, $order);
-                $total_price = $pay_postage = 0;
+                //总共申请多少件
+                $total_num = array_sum(array_column($cart_ids, 'cart_num'));
+                if ($total_num < $order['total_num']) {
+                    /** @var StoreOrderSplitServices $storeOrderSpliteServices */
+                    $storeOrderSpliteServices = app()->make(StoreOrderSplitServices::class);
+                    $cartInfos = $storeOrderSpliteServices->getSplitOrderCartInfo($id, $cart_ids, $order);
+                    $total_price = $pay_postage = 0;
+                    foreach ($cartInfos as $cart) {
+                        $_info = is_string($cart['cart_info']) ? json_decode($cart['cart_info'], true) : $cart['cart_info'];
+                        $total_price = bcadd((string)$total_price, bcmul((string)($_info['truePrice'] ?? 0), (string)$cart['cart_num'], 4), 2);
+                        $pay_postage = bcadd((string)$pay_postage, (string)($_info['postage_price'] ?? 0), 2);
+                    }
+                    $refund_pay_price = bcadd((string)$total_price, (string)$pay_postage, 2);
+                    //订单实际支付金额
+                    $order_pay_price = bcsub((string)bcadd((string)$order['total_price'], (string)$order['pay_postage'], 2), (string)bcadd((string)$order['deduction_price'], (string)$order['coupon_price'], 2), 2);
+                    if ($order_pay_price != $order['pay_price'] && $refund_pay_price != $order_pay_price) {//有改价
+                        $refund_price = bcmul((string)bcdiv((string)$refund_pay_price, (string)$order_pay_price, 4), (string)$order['pay_price'], 2);
+                    } else {
+                        $refund_price = $refund_pay_price;
+                    }
+                }
+            } else {
                 foreach ($cartInfos as $cart) {
-                    $_info = is_string($cart['cart_info']) ? json_decode($cart['cart_info'], true) : $cart['cart_info'];
-                    $total_price = bcadd((string)$total_price, bcmul((string)($_info['truePrice'] ?? 0), (string)$cart['cart_num'], 4), 2);
-                    $pay_postage = bcadd((string)$pay_postage, (string)($_info['postage_price'] ?? 0), 2);
-                }
-                $refund_pay_price = bcadd((string)$total_price, (string)$pay_postage, 2);
-                //订单实际支付金额
-                $order_pay_price = bcsub((string)bcadd((string)$order['total_price'], (string)$order['pay_postage'], 2), (string)bcadd((string)$order['deduction_price'], (string)$order['coupon_price'], 2), 2);
-                if ($order_pay_price != $order['pay_price'] && $refund_pay_price != $order_pay_price) {//有改价
-                    $refund_price = bcmul((string)bcdiv((string)$refund_pay_price, (string)$order_pay_price, 4), (string)$order['pay_price'], 2);
-                } else {
-                    $refund_price = $refund_pay_price;
+                    if ($cart['refund_num'] > 0) {
+                        throw new ApiException('退款件数大于订单件数');
+                    }
                 }
             }
-        } else {
-            foreach ($cartInfos as $cart) {
-                if ($cart['refund_num'] > 0) {
-                    throw new ApiException('退款件数大于订单件数');
-                }
+            $completedRefund = Db::name('store_order_refund')->where('store_order_id', $id)
+                ->where('refund_type', 6)->where('is_cancel', 0)->where('is_del', 0)->sum('refunded_price');
+            if ($completedRefund === null || $completedRefund === '') $completedRefund = '0.00';
+            if (bccomp(bcadd((string)$completedRefund, (string)$refund_price, 2), (string)$order['pay_price'], 2) > 0) {
+                throw new ApiException('退款金额超过订单剩余可退金额');
             }
-        }
-        foreach ($cartInfos as &$cart) {
-            $cart['cart_info'] = is_string($cart['cart_info']) ? json_decode($cart['cart_info'], true) : $cart['cart_info'];
-        }
-        $refundData['uid'] = $uid;
-        $refundData['store_id'] = $order['store_id'];
-        $refundData['store_order_id'] = $id;
-        $refundData['refund_num'] = $refund_num;
-        $refundData['refund_type'] = $refundType;
-        $refundData['refund_price'] = $refund_price;
-        $refundData['order_id'] = $order['refund_no'] = app()->make(StoreOrderCreateServices::class)->getNewOrderId('');
-        $refundData['add_time'] = time();
-        $refundData['cart_info'] = json_encode(array_column($cartInfos, 'cart_info'));
-        $refundData['is_pink_cancel'] = $isPink;
-        $res = $this->transaction(function () use ($id, $order, $cart_ids, $refundData, $storeOrderCartInfoServices, $cartInfo, $orderServices, $cartInfos) {
+            foreach ($cartInfos as &$cart) {
+                $cart['cart_info'] = is_string($cart['cart_info']) ? json_decode($cart['cart_info'], true) : $cart['cart_info'];
+            }
+            $refundData['uid'] = $uid;
+            $refundData['store_id'] = $order['store_id'];
+            $refundData['store_order_id'] = $id;
+            $refundData['refund_num'] = $refund_num;
+            $refundData['refund_type'] = $refundType;
+            $refundData['refund_price'] = $refund_price;
+            $refundData['order_id'] = $order['refund_no'] = app()->make(StoreOrderCreateServices::class)->getNewOrderId('');
+            $refundData['add_time'] = time();
+            $refundData['cart_info'] = json_encode(array_column($cartInfos, 'cart_info'));
+            $refundData['is_pink_cancel'] = $isPink;
             /** @var StoreOrderStatusServices $statusService */
             $statusService = app()->make(StoreOrderStatusServices::class);
             $res1 = false !== $statusService->save([
@@ -1190,10 +1214,12 @@ class StoreOrderRefundServices extends BaseServices
      * @email 442384644@qq.com
      * @date 2023/02/17
      */
-    public function refundDetail($uni)
+    public function refundDetail($uni, ?int $uid = null)
     {
         if (!strlen(trim($uni))) throw new ApiException('参数错误');
-        $order = $this->dao->get(['order_id' => $uni], ['*']);
+        $where = ['order_id' => $uni];
+        if ($uid !== null) $where['uid'] = $uid;
+        $order = $this->dao->get($where, ['*']);
         if (!$order) throw new ApiException('订单不存在');
         $order = $order->toArray();
 

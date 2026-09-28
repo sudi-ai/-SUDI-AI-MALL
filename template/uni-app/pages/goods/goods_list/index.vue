@@ -35,7 +35,7 @@
 					<view class='item' :class='is_switch==true?"":"on"' hover-class='none'
 						v-for="(item,index) in productList" :key="index" @click="godDetail(item)">
 						<view class='pictrue' :class='is_switch==true?"":"on"'>
-							<image :src='item.image' :class='is_switch==true?"":"on"'></image>
+							<image mode='aspectFit' :src='item.image' :class='is_switch==true?"":"on"'></image>
 							<span class="pictrue_log_class"
 								:class="is_switch === true ? 'pictrue_log_big' : 'pictrue_log'"
 								v-if="item.activity && item.activity.type === '1' && $permission('seckill')">{{$t(`秒杀`)}}</span>
@@ -56,7 +56,7 @@
 									<image src='../../../static/images/vip.png'></image>
 								</view>
 								<view v-else></view>
-								<view>{{$t(`已售`)}} {{item.sales}}{{$t(item.unit_name) || $t(`件`)}}</view>
+								<view v-if="Number(item.sales) > 0">{{$t(`已售`)}} {{item.sales}}{{$t(item.unit_name) || $t(`件`)}}</view>
 							</view>
 						</view>
 					</view>
@@ -507,4 +507,13 @@
 			}
 		}
 	}
+
+    .productList .list:not(.on) { padding:0 28rpx 30rpx;align-items:flex-start; }
+    .productList .list .item:not(.on) { width:calc(50% - 10rpx);background:transparent;border-radius:0; }
+    .productList .list .item .pictrue:not(.on) { height:0;padding-bottom:133.333333%;background:#f0eeea; }
+    .productList .list .item .pictrue:not(.on) image { position:absolute;inset:0;border-radius:0; }
+    .productList .list .item .text:not(.on) { padding:22rpx 4rpx 30rpx;font-size:25rpx; }
+    .productList .list .item .name { line-height:1.65;height:3.3em;font-weight:400; }
+    .productList .list .item .text .money { font-weight:400; }
+    .productList .list .item .text .money .num { font-size:29rpx; }
 </style>

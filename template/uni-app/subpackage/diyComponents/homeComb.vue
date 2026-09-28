@@ -1,5 +1,5 @@
 <template>
-  <view class="page_count">
+  <view class="page_count nu-home-comb">
     <common-wrapper :config="configData">
       <div class="bag-gradient" :style="[bgGradientStyle]"></div>
       <view class="bg-img" v-if="imgUrls.length">
@@ -155,6 +155,7 @@
                     :style="[imageStyle]"
                     mode="aspectFill"
                     class="slide-image"
+                    @error="removeFailedBanner(item.img)"
                   ></image>
                 </view>
               </swiper-item>
@@ -456,6 +457,10 @@ export default {
     uni.setStorageSync("hotList", that.hotWords);
   },
   methods: {
+    removeFailedBanner(url) {
+      this.imgUrls = this.imgUrls.filter(item => item.img !== url);
+      if (this.swiperCur >= this.imgUrls.length) this.swiperCur = 0;
+    },
     goDetail(url) {
       let urls = url.info[1].value;
       this.$util.JumpPath(urls);

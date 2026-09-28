@@ -1,5 +1,5 @@
 <template>
-  <view class="product-info-diy" v-if="productData">
+  <view class="product-info-diy" v-if="productData && productData.id">
     <common-wrapper :config="configData">
       <view class="product-info-box" :class="'style-' + specStyle">
         <!-- 图片区域 -->
@@ -424,8 +424,8 @@ export default {
   },
   computed: {
     displayInfo() {
-      let price = this.priceData.price || "0.00";
-      let real_price = this.priceData.real_price || "0.00";
+      let price = this.priceData.price != null ? this.priceData.price : this.productData.price;
+      let real_price = this.priceData.real_price != null ? this.priceData.real_price : price;
       let ot_price = this.priceData.ot_price || "0.00";
       let vip_price = this.priceData.vip_price;
       let stock = this.productData.stock || 0;
@@ -435,8 +435,12 @@ export default {
       if (this.skuList.length > 0 && this.selectedIndex < this.skuList.length) {
         let sku = this.skuList[this.selectedIndex];
         if (sku) {
-          if (sku.price) price = sku.price;
-          if (sku.real_price) price = sku.real_price;
+          if (sku.price != null) price = sku.price;
+          // The current SKU's server-calculated price takes priority over catalog prices.
+          if (this.priceData.real_price == null) {
+            if (sku.real_price != null) real_price = sku.real_price;
+            else if (sku.price != null) real_price = sku.price;
+          }
           if (sku.ot_price) ot_price = sku.ot_price;
           if (sku.vip_price) vip_price = sku.vip_price;
           if (sku.stock || sku.stock === 0) stock = sku.stock;

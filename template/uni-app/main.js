@@ -1,3 +1,5 @@
+import BrandLockup from './components/BrandLockup.vue';
+import { brand, brandColorStyle } from './utils/brand';
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
@@ -29,6 +31,9 @@ import BaseMoney from './components/BaseMoney.vue';
 import BaseTag from './components/BaseTag.vue';
 import BaseDrawer from '@/components/tuiDrawer/tui-drawer.vue'
 Vue.component('skeleton', skeleton)
+Vue.component('BrandLockup', BrandLockup)
+Vue.prototype.$brand = brand;
+uni.setStorageSync('viewColor', brandColorStyle);
 Vue.component('pageLoading', pageLoading)
 Vue.component('easyLoadimage', easyLoadimage)
 Vue.component('BaseMoney', BaseMoney)

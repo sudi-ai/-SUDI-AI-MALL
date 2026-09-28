@@ -18,6 +18,10 @@ return [
     'maxMinuteCount' => 5,
     //单个IP每日发送上限
     'maxIpCount' => 50,
+    // 发送冷却（秒）；每个验证码最多错误次数；每个IP五分钟验证上限
+    'sendCooldownSeconds' => 60,
+    'maxVerifyAttempts' => 5,
+    'maxVerifyIpCount' => 100,
     //驱动模式
     'stores' => [
         //一号通

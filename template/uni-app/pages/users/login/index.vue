@@ -1,18 +1,20 @@
 <template>
 	<view class="login-wrapper" :style="colorStyle">
-		<view class="shading">
-			<image :src="logoUrl" />
-			<view v-if="configData && configData.site_name" class="name">
-				{{ configData.site_name }}
-			</view>
-		</view>
+		<view class="login-orbit" aria-hidden="true"></view>
+		<BrandLockup class="login-brand" />
+		<view class="login-heading">欢迎回来</view>
+		<view class="login-description">登录后继续探索本季新作</view>
 		<view class="whiteBg" v-if="formItem === 1">
+            <view class="login-tabs" v-if="!appLoginStatus && !appleLoginStatus">
+                <button class="login-tab" :class="{ active: current === 1 }" @click="current = 1">验证码登录</button>
+                <button class="login-tab" :class="{ active: current === 0 }" @click="current = 0">账号登录</button>
+            </view>
 			<view class="list" v-if="current !== 1">
 				<form @submit.prevent="submit">
 					<view class="item">
 						<view class="acea-row row-middle">
 							<image src="../static/phone_1.png" style="width: 24rpx; height: 34rpx"></image>
-							<input type="text" :placeholder="$t(`输入手机号码`)" v-model="account" maxlength="11" required />
+							<input type="text" :placeholder="$t(`手机号、邮箱或账号`)" v-model="account" maxlength="100" required />
 						</view>
 					</view>
 					<view class="item">
@@ -30,13 +32,13 @@
 				<view class="item">
 					<view class="acea-row row-middle">
 						<image src="../static/phone_1.png" style="width: 24rpx; height: 34rpx"></image>
-						<input type="text" :placeholder="$t(`输入手机号码`)" v-model="account" :maxlength="11" />
+						<input type="number" inputmode="tel" :placeholder="$t(`请输入手机号`)" v-model.trim="account" :maxlength="11" />
 					</view>
 				</view>
 				<view class="item">
 					<view class="acea-row row-middle">
 						<image src="../static/code_2.png" style="width: 28rpx; height: 32rpx"></image>
-						<input type="text" :placeholder="$t(`填写验证码`)" :maxlength="6" class="codeIput" v-model="captcha" />
+						<input type="number" inputmode="numeric" text-content-type="one-time-code" :placeholder="$t(`请输入验证码`)" :maxlength="6" class="codeIput" v-model.trim="captcha" />
 						<button class="code" :disabled="disabled" :class="disabled === true ? 'on' : ''" @click="code">
 							{{ text }}
 						</button>
@@ -45,19 +47,14 @@
 				<!-- 	<view class="item" v-if="isShowCode">
 					<view class="acea-row row-middle">
 						<image src="../static/code_2.png" style="width: 28rpx; height: 32rpx;"></image>
-						<input type="text" :placeholder="$t(`填写验证码`)" class="codeIput" v-model="codeVal" />
+						<input type="text" :placeholder="$t(`请输入验证码`)" class="codeIput" v-model="codeVal" />
 						<view class="code" @click="again"><img :src="codeUrl" /></view>
 					</view>
 				</view> -->
 			</view>
-			<view class="logon" @click="loginMobile" v-if="current !== 0">{{ $t(`登录`) }}</view>
-			<view class="logon" @click="submit" v-if="current === 0">{{ $t(`登录`) }}</view>
-			<!-- #ifndef APP-PLUS -->
-			<view class="tips">
-				<view v-if="current == 0" @click="current = 1">{{ $t(`快速登录`) }}</view>
-				<view v-if="current == 1" @click="current = 0">{{ $t(`账号登录`) }}</view>
-			</view>
-			<!-- #endif -->
+			<button class="logon" @click="loginMobile" v-if="current !== 0">{{ $t(`登录 / 注册`) }}</button>
+			<button class="logon" @click="submit" v-if="current === 0">{{ $t(`登录`) }}</button>
+
 			<!-- #ifdef APP-PLUS -->
 			<view class="appLogin" v-if="!appLoginStatus && !appleLoginStatus">
 				<view class="hds">
@@ -81,22 +78,21 @@
 				</view>
 			</view>
 			<!-- #endif -->
+			<view class="phone-register-hint" v-if="current !== 0 && !appLoginStatus && !appleLoginStatus">未注册手机号验证通过后将自动创建账号</view>
 			<view class="protocol">
 				<checkbox-group @change="ChangeIsDefault">
 					<checkbox :class="inAnimation ? 'trembling' : ''" @animationend="inAnimation = false" :checked="protocol ? true : false" />
 					{{ $t(`已阅读并同意`) }}
 					<text class="main-color" @click="privacy(4)">{{ $t(`《用户协议》`) }}</text>
 					{{ $t(`与`) }}
-					<text class="main-color" @click="privacy(3)">{{ $t(`《隐私协议》`) }}</text>
+					<text class="main-color" @click="privacy(3)">{{ $t(`《隐私政策》`) }}</text>
 				</checkbox-group>
 			</view>
 		</view>
-		<view class="bottom">
-			<view class="ver" v-if="copyRight">{{ copyRight }}</view>
-			<view v-else class="ver">
-				<a href="https://www.crmeb.com">Copyright ©2024 CRMEB. All Rights</a>
-			</view>
-		</view>
+		<view class="brand-footer">
+            <view>{{ $brand.signature }}</view>
+            <view class="legal-copyright" v-if="copyRight">{{ copyRight }}</view>
+        </view>
 		<Verify @success="success" :captchaType="captchaType" :imgSize="{ width: '330px', height: '155px' }" ref="verify"></Verify>
 	</view>
 </template>
@@ -432,9 +428,9 @@ export default {
 				});
 			if (!that.captcha)
 				return that.$util.Tips({
-					title: that.$t(`请填写验证码`)
+					title: that.$t(`请请输入验证码`)
 				});
-			if (!/^[\w\d]+$/i.test(that.captcha))
+			if (!/^\d{6}$/.test(that.captcha))
 				return that.$util.Tips({
 					title: that.$t(`请输入正确的验证码`)
 				});
@@ -464,11 +460,15 @@ export default {
 						});
 						let backUrl = that.$Cache.get(BACK_URL) || '/pages/index/index';
 						that.$Cache.clear(BACK_URL);
-						getUserInfo().then((res) => {
+						return getUserInfo().then((res) => {
 							this.keyLock = true;
 							that.$store.commit('SETUID', res.data.uid);
 							if (backUrl.indexOf('/pages/users/login/index') !== -1) {
 								backUrl = '/pages/index/index';
+							}
+							if (data.needs_password_setup) {
+								that.$Cache.set('password_setup_back', backUrl, 600);
+								return uni.reLaunch({ url: '/pages/users/user_pwd_edit/index?setup=1' });
 							}
 							uni.reLaunch({
 								url: backUrl
@@ -501,7 +501,7 @@ export default {
 				});
 			if (!that.captcha)
 				return that.$util.Tips({
-					title: that.$t(`请填写验证码`)
+					title: that.$t(`请请输入验证码`)
 				});
 			if (!/^[\w\d]+$/i.test(that.captcha))
 				return that.$util.Tips({
@@ -585,7 +585,7 @@ export default {
 				return that.$util.Tips({
 					title: that.$t(`请填写账号`)
 				});
-			if (!/^[\w\d]{5,16}$/i.test(that.account))
+			if (!/^[\w\d]{5,16}$/i.test(that.account) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(that.account))
 				return that.$util.Tips({
 					title: that.$t(`请输入正确的账号`)
 				});
@@ -635,224 +635,43 @@ export default {
 	}
 };
 </script>
-<style>
-page {
-	background: #fff;
-}
-</style>
-<style lang="scss">
-.appLogin {
-	margin-top: 60rpx;
-
-	.hds {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		font-size: 24rpx;
-		color: #b4b4b4;
-
-		.line {
-			width: 68rpx;
-			height: 1rpx;
-			background: #cccccc;
-		}
-
-		p {
-			margin: 0 20rpx;
-		}
-	}
-
-	.btn-wrapper {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-top: 30rpx;
-
-		.btn {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 68rpx;
-			height: 68rpx;
-			border-radius: 50%;
-		}
-
-		.apple-btn {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 68rpx;
-			height: 68rpx;
-			border-radius: 50%;
-			background: #000;
-
-			.icon-s-pingguo {
-				color: #fff;
-				font-size: 44rpx;
-			}
-		}
-
-		.iconfont {
-			font-size: 40rpx;
-			color: #fff;
-		}
-
-		.wx {
-			margin-right: 30rpx;
-			background-color: #61c64f;
-		}
-
-		.mima {
-			margin-right: 30rpx;
-			background-color: #28b3e9;
-		}
-
-		.yanzheng {
-			margin-right: 30rpx;
-			background-color: #f89c23;
-		}
-	}
-}
-
-.code img {
-	width: 100%;
-	height: 100%;
-}
-
-.acea-row.row-middle {
-	input {
-		margin-left: 20rpx;
-		display: block;
-	}
-}
-
+<style scoped lang="scss">
 .login-wrapper {
-	padding: 30rpx;
-
-	.shading {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-direction: column;
-		width: 100%;
-
-		/* #ifdef APP-VUE */
-		margin-top: 50rpx;
-		/* #endif */
-		/* #ifndef APP-VUE */
-
-		margin-top: 200rpx;
-		/* #endif */
-
-		image {
-			width: 240rpx;
-			height: 240rpx;
-		}
-		.name {
-			font-size: 40rpx;
-			font-weight: 500;
-			color: #333333;
-			margin-top: 22rpx;
-		}
-	}
-
-	.whiteBg {
-		margin-top: 100rpx;
-
-		.list {
-			border-radius: 16rpx;
-			overflow: hidden;
-
-			.item {
-				border-bottom: 1px solid #f0f0f0;
-				background: #fff;
-
-				.row-middle {
-					position: relative;
-					padding: 16rpx 45rpx;
-
-					input {
-						flex: 1;
-						font-size: 28rpx;
-						height: 80rpx;
-					}
-
-					.code {
-						position: absolute;
-						right: 30rpx;
-						top: 50%;
-						color: var(--view-theme);
-						font-size: 26rpx;
-						transform: translateY(-50%);
-					}
-				}
-			}
-		}
-
-		.logon {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 100%;
-			height: 86rpx;
-			margin-top: 80rpx;
-			background-color: var(--view-theme);
-			border-radius: 120rpx;
-			color: #ffffff;
-			font-size: 30rpx;
-		}
-
-		.tips {
-			margin: 30rpx;
-			text-align: center;
-			color: #999;
-		}
-	}
+    position:relative;display:flex;flex-direction:column;overflow:hidden;
+    min-height:100vh;min-height:100svh;padding:140rpx 64rpx 30rpx;
+    padding-top:calc(140rpx + env(safe-area-inset-top));
+    padding-bottom:calc(30rpx + env(safe-area-inset-bottom));
+    background:#f8f6f2;color:#1c1d1a;box-sizing:border-box;
 }
-
-.protocol {
-	margin-top: 40rpx;
-	color: #999999;
-	font-size: 24rpx;
-	text-align: center;
-	bottom: 20rpx;
-}
-/* #ifdef H5 */
-@media (min-aspect-ratio: 13/20) {
-	.bottom {
-		display: none !important;
-	}
-}
-/* #endif */
-.bottom {
-	position: fixed;
-	bottom: 30rpx;
-	left: 0;
-	display: flex;
-	width: 100%;
-	justify-content: center;
-	color: #999999;
-
-	.ver {
-		font-size: 20rpx;
-	}
-
-	.ver-msg {
-		margin-left: 10rpx;
-	}
-
-	a {
-		color: #999999;
-		margin-left: 10rpx;
-		text-decoration: none;
-	}
-}
-
-.trembling {
-	animation: shake 0.6s;
-}
-
-.main-color {
-	color: var(--view-theme);
-}
+.login-brand,.login-heading,.login-description,.whiteBg,.brand-footer { position:relative;z-index:1; }
+.login-orbit { position:absolute;width:310rpx;height:310rpx;border:1px solid #cbb8b1;border-radius:50%;right:-160rpx;top:130rpx;pointer-events:none; }
+.login-orbit::after { content:'';position:absolute;inset:36rpx;border:1px solid #dfd1ca;border-radius:50%; }
+.login-heading { margin-top:66rpx;font-size:34rpx;line-height:1.4;font-weight:600;letter-spacing:1rpx; }
+.login-description { margin-top:18rpx;color:#77776e;font-size:22rpx;line-height:1.7; }
+.whiteBg { margin-top:44rpx; }
+.login-tabs { display:flex;gap:40rpx;border-bottom:1px solid #d6d3cc; }
+.login-tab { margin:0;padding:0 0 20rpx;background:transparent;color:#77776e;font-size:23rpx;line-height:1.5;min-height:60rpx;border-radius:0; }
+.login-tab::after,.logon::after,.code::after { border:0; }
+.login-tab.active { color:#1c1d1a;font-weight:600;box-shadow:0 1px 0 #1c1d1a; }
+.list .item { border-bottom:1px solid #d6d3cc;background:transparent; }
+.list .row-middle { min-height:102rpx;display:flex;align-items:center;gap:24rpx; }
+.list image { opacity:.7;flex:none;filter:grayscale(1); }
+.list input { min-width:0;flex:1;height:100rpx;font-size:25rpx;margin:0; }
+.list .code { flex:none;background:transparent;color:#1c1d1a;font-size:21rpx;margin:0;padding:0;min-height:76rpx;line-height:76rpx; }
+.list .code.on { color:#77776e; }
+.logon { display:flex;align-items:center;justify-content:center;width:100%;height:88rpx;margin:44rpx 0 0;border-radius:0;background:#1c1d1a;color:#fff;font-size:26rpx;letter-spacing:2rpx;font-weight:600; }
+.phone-register-hint { color:#77776e;font-size:19rpx;line-height:1.7;margin-top:20rpx; }
+.protocol { margin-top:12rpx;color:#77776e;font-size:19rpx;line-height:1.9; }
+.protocol checkbox { transform:scale(.65);transform-origin:left center;width:28rpx;vertical-align:middle; }
+.main-color { color:#62645d;text-decoration:underline;text-underline-offset:4rpx; }
+.brand-footer { margin-top:auto;padding-top:82rpx;text-align:center;color:#77776e;font-size:16rpx;letter-spacing:2.5rpx;line-height:1.8; }
+.legal-copyright { margin-top:10rpx;font-size:15rpx;letter-spacing:0; }
+.appLogin { margin-top:30rpx; }
+.appLogin .hds,.appLogin .btn-wrapper { display:flex;justify-content:center;gap:24rpx;align-items:center;font-size:22rpx; }
+.appLogin .btn-wrapper { margin-top:22rpx; }
+.appLogin .btn,.appLogin .apple-btn { width:72rpx;height:72rpx;border:1px solid #d6d3cc;border-radius:50%;display:flex;align-items:center;justify-content:center; }
+.appLogin .iconfont { font-size:38rpx; }
+.trembling { animation:shake .6s; }
+@media (max-height:650px) { .login-wrapper { padding-top:60rpx; } .login-heading { margin-top:38rpx; } .brand-footer { padding-top:44rpx; } }
+@media (min-width:600px) { .login-wrapper { max-width:480px;margin:auto;padding:72px 40px 24px; } }
 </style>

@@ -1,3 +1,4 @@
+import { brandTheme } from '@/utils/brand';
 import { getThemeInfo } from "@/api/api.js";
 
 /**
@@ -28,7 +29,8 @@ export function hexToRgba(hex, alpha) {
  * 设置主题颜色
  * @param {Object} data 主题数据
  */
-export function setThemeColor(data) {
+export function setThemeColor(data = {}) {
+  data = { ...data, ...brandTheme };
   let selectedTheme;
   // 处理自定义主题色数据
   if (data.theme_color) {

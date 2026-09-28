@@ -53,6 +53,11 @@
 							</view>
 						</view>
 					</view>
+					<view class='item acea-row row-between-wrapper'>
+						<view>登录邮箱</view>
+						<view v-if="identities.email_bound" class="input">已绑定</view>
+						<navigator v-else url="/pages/users/email_auth/index?mode=bind" class="input">点击绑定邮箱<text class="iconfont icon-xiangyou"></text></navigator>
+					</view>
 					<!-- #ifdef MP -->
 					<view class='item acea-row row-between-wrapper'>
 						<view>{{$t(`权限设置`)}}</view>
@@ -62,10 +67,10 @@
 					</view>
 					<!-- #endif -->
 					<!-- #ifdef H5 -->
-					<view class="item acea-row row-between-wrapper" v-if="userInfo.phone && !this.$wechat.isWeixin()">
+					<view class="item acea-row row-between-wrapper" v-if="userInfo.phone">
 						<view>{{$t(`密码`)}}</view>
 						<navigator url="/pages/users/user_pwd_edit/index" hover-class="none" class="input">
-							{{$t(`点击修改密码`)}}<text class="iconfont icon-xiangyou"></text>
+							{{$t(`设置或修改密码`)}}<text class="iconfont icon-xiangyou"></text>
 						</navigator>
 					</view>
 					<!-- #endif -->
@@ -158,6 +163,7 @@
 <script>
 	import {
 		getUserInfo,
+		getAccountIdentities,
 		userEdit,
 		getLogout,
 		getLangList,
@@ -194,6 +200,7 @@
 		data() {
 			return {
 				userInfo: {},
+				identities: {},
 				loginType: 'h5', //app.globalData.loginType
 				userIndex: 0,
 				switchUserInfo: [],
@@ -219,6 +226,9 @@
 				},
 				deep: true
 			}
+		},
+		onShow() {
+			if (this.isLogin) getAccountIdentities().then(res => { this.identities = res.data; }).catch(() => {});
 		},
 		onLoad() {
 			if (this.isLogin) {

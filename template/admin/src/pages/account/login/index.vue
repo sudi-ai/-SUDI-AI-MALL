@@ -1,84 +1,41 @@
 <template>
-  <div class="page-account">
-    <div class="container" :class="[fullWidth > 768 ? 'containerSamll' : 'containerBig']">
-      <swiper :options="swiperOption" class="swiperPross" v-if="fullWidth > 768">
-        <swiper-slide class="swiperPic" v-for="(item, index) in swiperList" :key="index">
-          <img :src="item.slide" alt="" />
-        </swiper-slide>
-        <div class="swiper-pagination" slot="pagination"></div>
-      </swiper>
-      <div class="index_from page-account-container from-wh">
-        <div class="page-account-top">
-          <div class="page-account-top-logo">
-            <img :src="login_logo" alt="logo" style="width: 100%; height: 74px" />
-          </div>
-        </div>
-        <el-form ref="formInline" :model="formInline" :rules="ruleInline" @keyup.enter="handleSubmit('formInline')">
-          <el-form-item prop="username">
-            <el-input
-              type="text"
-              v-model="formInline.username"
-              prefix="ios-contact-outline"
-              placeholder="请输入用户名"
-              size="large"
-            />
-          </el-form-item>
-          <el-form-item prop="password">
-            <el-input
-              type="password"
-              v-model="formInline.password"
-              prefix="ios-lock-outline"
-              placeholder="请输入密码"
-              size="large"
-              show-password
-            />
-          </el-form-item>
-          <!-- <el-form-item prop="code">
-            <div class="code">
-              <el-input
-                type="text"
-                v-model="formInline.code"
-                prefix="ios-keypad-outline"
-                placeholder="请输入验证码"
-                size="large"
-              />
-              <img :src="imgcode" class="pictrue" v-db-click @click="captchas" />
-            </div>
-          </el-form-item> -->
-          <el-form-item class="pt10">
-            <el-button
-              type="primary"
-              :loading="loading"
-              size="large"
-              v-db-click
-              @click="handleSubmit('formInline')"
-              class="btn"
-              >登录</el-button
-            >
-          </el-form-item>
-        </el-form>
+  <div class="page-account nu-admin-login">
+    <div class="nu-admin-orbit" aria-hidden="true"></div>
+    <main class="nu-admin-card">
+      <header class="nu-admin-brand">
+        <div class="nu-admin-wordmark">Nuyoahcc</div>
+        <div class="nu-admin-company">杭州苏迪服饰有限公司</div>
+      </header>
+      <div class="nu-admin-intro">
+        <div class="nu-admin-eyebrow">商城管理 <span>ADMINISTRATION</span></div>
+        <h1>欢迎回来</h1>
+        <p>登录后管理商品与订单</p>
       </div>
-    </div>
-
-    <Verify
-      @success="success"
-      captchaType="blockPuzzle"
-      :imgSize="{ width: '330px', height: '155px' }"
-      ref="verify"
-    ></Verify>
-    <div class="footer">
-      <div class="pull-right" v-if="copyright">{{ copyright }}</div>
-      <div class="pull-right" v-else>
-        Copyright © 2014-2025 <a href="https://www.crmeb.com" target="_blank">{{ version }}</a>
-      </div>
-    </div>
+      <el-form ref="formInline" :model="formInline" :rules="ruleInline" label-position="top" @keyup.enter="handleSubmit('formInline')">
+        <el-form-item prop="username" label="管理员账号">
+          <el-input v-model="formInline.username" type="text" prefix-icon="el-icon-user" placeholder="请输入管理员账号" autocomplete="username" size="large" />
+        </el-form-item>
+        <el-form-item prop="password" label="登录密码">
+          <el-input v-model="formInline.password" type="password" prefix-icon="el-icon-lock" placeholder="请输入密码" autocomplete="current-password" size="large" show-password />
+        </el-form-item>
+        <el-form-item class="nu-admin-submit">
+          <el-button type="primary" :loading="loading" size="large" v-db-click @click="handleSubmit('formInline')" class="btn">登录管理后台</el-button>
+        </el-form-item>
+      </el-form>
+      <div class="nu-admin-help"><span>仅供商城管理员使用</span><a href="/">返回商城 <span aria-hidden="true">↗</span></a></div>
+    </main>
+    <Verify :key="captchaSize.width" @success="success" captchaType="blockPuzzle" :imgSize="captchaSize" ref="verify"></Verify>
+    <footer class="nu-admin-footer">
+      <div class="nu-admin-signature">NUYOAHCC · HANGZHOU</div>
+      <div v-if="copyright" class="nu-admin-copyright">{{ copyright }}</div>
+      <div v-else class="nu-admin-copyright">Copyright © 2014-2025 <a href="https://www.crmeb.com" target="_blank" rel="noopener">{{ version }}</a></div>
+    </footer>
   </div>
 </template>
 <script>
 import { AccountLogin, loginInfoApi } from '@/api/account';
 import { getWorkermanUrl } from '@/api/kefu';
 import { setCookies } from '@/libs/util';
-import '@/assets/js/canvas-nest.min';
 import Verify from '@/components/verifition/Verify';
 import { PrevLoading } from '@/utils/loading.js';
 import { formatFlatteningRoutes, findFirstNonNullChildren } from '@/libs/system';
@@ -91,10 +48,6 @@ export default {
   data() {
     return {
       fullWidth: document.documentElement.clientWidth,
-      swiperOption: {
-        pagination: '.swiper-pagination',
-        autoplay: true,
-      },
       loading: false,
       isShow: false,
       imgcode: '',
@@ -107,14 +60,16 @@ export default {
         password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
       },
       login_captcha: 0,
-      login_logo: '',
-      swiperList: [],
-      defaultSwiperList: require('@/assets/images/sw.png'),
       key: '',
       copyright: '',
       version: '',
       timer: null,
     };
+  },
+  computed: {
+    captchaSize() {
+      return { width: String(Math.min(330, Math.max(240, this.fullWidth - 64))) + 'px', height: '155px' };
+    },
   },
   created() {
     document.onkeydown = (e) => {
@@ -133,19 +88,15 @@ export default {
   beforeDestroy() {
     window.removeEventListener('resize', this.handleResize);
     document.onkeydown = null;
-    const canvas = document.getElementsByTagName('canvas')[0];
-    if (canvas) canvas.removeAttribute('class', 'index_bg');
   },
   methods: {
     swiperData() {
       loginInfoApi()
         .then((res) => {
           const data = res.data || {};
-          document.title = `${data.site_name} - 登录`;
+          document.title = 'Nuyoahcc · 商城管理登录';
           localStorage.setItem('ADMIN_TITLE', data.site_name || '');
           this.$store.commit('setAdminTitle', data.site_name);
-          this.login_logo = data.login_logo || require('@/assets/images/logo.png');
-          this.swiperList = data.slide && data.slide.length ? data.slide : [{ slide: this.defaultSwiperList }];
           this.key = data.key;
           this.copyright = data.copyright;
           this.version = data.version;
@@ -153,8 +104,6 @@ export default {
         })
         .catch((err) => {
           this.$message.error(err);
-          this.login_logo = require('@/assets/images/logo.png');
-          this.swiperList = [{ slide: this.defaultSwiperList }];
         });
     },
     success(params) {
@@ -279,14 +228,7 @@ export default {
     },
     handleResize() {
       this.fullWidth = document.documentElement.clientWidth;
-      const canvas = document.getElementsByTagName('canvas')[0];
-      if (canvas) {
-        if (this.fullWidth < 768) {
-          canvas.removeAttribute('class', 'index_bg');
-        } else {
-          canvas.className = 'index_bg';
-        }
-      }
+
     },
     handleSubmit(name) {
       this.$refs[name].validate((valid) => {
@@ -303,137 +245,57 @@ export default {
 };
 </script>
 <style lang="scss" scoped>
-.page-account {
-  display: flex;
-  width: 100%;
-  background-image: url('../../../assets/images/bg.jpg');
-  background-size: cover;
-  background-position: center;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  overflow: auto;
+.nu-admin-login {
+  --paper:#f8f6f2; --ink:#1c1d1a; --muted:#77776e; --line:#d6d3cc;
+  --prev-color-primary:var(--ink); --prev-color-primary-light-3:#353630; --prev-color-primary-light-7:#77776e;
+  position:relative;display:flex;flex-direction:column;align-items:center;
+  min-height:100vh;min-height:100svh;padding:68px 32px 24px;box-sizing:border-box;
+  overflow-x:hidden;background:var(--paper);color:var(--ink);
+  font-family:'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;
 }
-.page-account .code {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.nu-admin-card { position:relative;z-index:1;width:100%;max-width:420px;margin:auto; }
+.nu-admin-wordmark { font-family:Didot,'Bodoni MT','Times New Roman',serif;font-size:58px;font-weight:400;line-height:1.1;letter-spacing:-3px; }
+.nu-admin-company { margin-top:14px;color:var(--muted);font-size:11px;letter-spacing:2px;line-height:1.8; }
+.nu-admin-intro { margin:52px 0 28px; }
+.nu-admin-eyebrow { display:flex;align-items:center;gap:14px;color:var(--muted);font-size:11px;letter-spacing:1px; }
+.nu-admin-eyebrow span { font-size:9px;letter-spacing:2px; }
+.nu-admin-intro h1 { margin:20px 0 8px;font-size:23px;line-height:1.5;font-weight:500;letter-spacing:1px; }
+.nu-admin-intro p { margin:0;color:var(--muted);font-size:13px;line-height:1.8; }
+.nu-admin-card ::v-deep .el-form-item { margin-bottom:24px; }
+.nu-admin-card ::v-deep .el-form-item__label { float:none;padding:0;line-height:24px;font-size:12px;font-weight:400;color:var(--muted); }
+.nu-admin-card ::v-deep .el-input__inner {
+  height:48px;line-height:48px;padding-left:29px;background:transparent;color:var(--ink);
+  border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;font-size:14px;
 }
-.page-account .code .pictrue {
-  height: 40px;
-}
-.swiperPross {
-  border-radius: 12px 0px 0px 12px;
-}
-.swiperPross,
-.swiperPic,
-.swiperPic img {
-  width: 510px;
-  height: 100%;
-}
-.swiperPic img {
-  width: 100%;
-  height: 100%;
-}
-.container {
-  height: 400px !important;
-  padding: 0 !important;
-  border-radius: 12px;
-  z-index: 1;
-  display: flex;
-}
-.containerSamll {
-  /* width: 56% !important; */
-  background: #fff !important;
-}
-.containerBig {
-  width: auto !important;
-  background: #f7f7f7 !important;
-}
-.index_from {
-  padding: 32px 40px 32px 40px;
-  height: 400px;
-  box-sizing: border-box;
-}
-.page-account-top {
-  padding: 20px 0 24px 0 !important;
-  box-sizing: border-box !important;
-  display: flex;
-  justify-content: center;
-}
-.page-account-container {
-  border-radius: 0px 6px 6px 0px;
-}
-.btn {
-  width: 100%;
-  background: linear-gradient(90deg, rgba(25, 180, 241, 1) 0%, rgba(14, 115, 232, 1) 100%) !important;
-}
-.captchaBox {
-  width: 310px;
-}
-
-input {
-  display: block;
-  width: 290px;
-  line-height: 40px;
-  margin: 10px 0;
-  padding: 0 10px;
-  outline: none;
-  border: 1px solid #c8cccf;
-  border-radius: 4px;
-  color: #6a6f77;
-}
-
-#msg {
-  width: 100%;
-  line-height: 40px;
-  font-size: 14px;
-  text-align: center;
-}
-
-a:link,
-a:visited,
-a:hover,
-a:active {
-  margin-left: 100px;
-  color: #0366d6;
-}
-.index_from ::v-deep .ivu-input-large {
-  font-size: 14px !important;
-}
-.from-wh {
-  width: 400px;
-}
-.pull-right {
-  float: right !important;
-}
-::v-deep .el-button--primary {
-  border: none;
-}
-::v-deep .el-button {
-  padding: 13px 20px !important;
-}
-.pull-right {
-  float: right !important;
-  color: #666;
-}
-.pull-right a {
-  margin-left: 0;
-  color: #666;
-}
-.footer {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  left: 0;
-  margin: 0;
-  background: rgba(255, 255, 255, 0.8);
-  border-top: 1px solid #e7eaec;
-  overflow: hidden;
-  padding: 10px 20px;
-  height: 36px;
-  line-height: 18px;
-  z-index: 999;
+.nu-admin-card ::v-deep .el-input__inner:hover,
+.nu-admin-card ::v-deep .el-input__inner:focus { border-bottom-color:var(--ink); }
+.nu-admin-card ::v-deep .el-input__inner::placeholder { color:#a4a299; }
+.nu-admin-card ::v-deep .el-input__prefix { left:0;color:var(--muted); }
+.nu-admin-card ::v-deep .el-input__suffix { right:0;color:var(--muted); }
+.nu-admin-card ::v-deep .el-input__icon { line-height:48px; }
+.nu-admin-card ::v-deep input:-webkit-autofill { -webkit-box-shadow:0 0 0 1000px var(--paper) inset;-webkit-text-fill-color:var(--ink); }
+.nu-admin-card ::v-deep .el-form-item.is-error .el-input__inner { border-bottom-color:#ad514a; }
+.nu-admin-card ::v-deep .el-form-item__error { color:#ad514a;font-size:12px;padding-top:6px; }
+.nu-admin-card .nu-admin-submit { margin:32px 0 18px; }
+.nu-admin-card .btn { width:100%;height:48px;border:1px solid var(--ink);border-radius:0;background:var(--ink);color:#fff;font-size:14px;letter-spacing:2px; }
+.nu-admin-card .btn:hover,.nu-admin-card .btn:focus { background:#353630;border-color:#353630; }
+.nu-admin-help { display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;line-height:1.8;color:var(--muted); }
+.nu-admin-help a { color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line); }
+.nu-admin-help a:focus-visible { outline:1px solid var(--ink);outline-offset:5px; }
+.nu-admin-orbit { position:absolute;width:240px;height:240px;border:1px solid #d7c6be;border-radius:50%;top:7%;right:-120px;pointer-events:none; }
+.nu-admin-orbit::after { content:'';position:absolute;inset:24px;border:1px solid #e0d2ca;border-radius:50%; }
+.nu-admin-footer { position:relative;z-index:1;width:100%;margin-top:56px;text-align:center;color:#929188;line-height:1.8; }
+.nu-admin-signature { font-size:10px;letter-spacing:2px; }
+.nu-admin-copyright { margin-top:8px;font-size:10px; }
+.nu-admin-copyright a { color:inherit;text-decoration:none; }
+@media(max-width:600px) {
+  .nu-admin-login { padding:64px 28px 22px; }
+  .nu-admin-card { max-width:420px; }
+  .nu-admin-wordmark { font-size:52px; }
+  .nu-admin-intro { margin-top:44px; }
+  .nu-admin-orbit { width:190px;height:190px;top:10%;right:-118px; }
+  .nu-admin-card ::v-deep .el-input__inner { font-size:16px; }
+  .nu-admin-footer { margin-top:56px; }
 }
 </style>
+

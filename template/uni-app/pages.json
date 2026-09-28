@@ -62,6 +62,26 @@
 			}
 		},
 		{
+			"path": "pages/sudi_ai/size",
+			"style": {"navigationBarTitleText": "AI 尺码助手"}
+		},
+		{
+			"path": "pages/sudi_ai/outfit",
+			"style": {"navigationBarTitleText": "AI 搭配"}
+		},
+		{
+			"path": "pages/sudi_ai/customer",
+			"style": {"navigationBarTitleText": "AI 客服"}
+		},
+		{
+			"path": "pages/sudi_ai/index",
+			"style": {
+				"navigationBarTitleText": "苏迪 AI 购物",
+				"navigationBarBackgroundColor": "#f8f6f2",
+				"navigationBarTextStyle": "black"
+			}
+		},
+		{
 			"path": "pages/goods_cate/goods_cate",
 			"style": {
 				"navigationBarTitleText": "商品分类",
@@ -996,6 +1016,10 @@
 					}
 				},
 				{
+					"path": "email_auth/index",
+					"style": { "navigationBarTitleText": "邮箱注册" }
+				},
+				{
 					"path": "payment_on_behalf/index",
 					"style": {
 						"navigationBarTitleText": "好友代付",
@@ -1721,9 +1745,9 @@
 	],
 	"tabBar": { // 底部菜单
 		"color": "#282828",
-		"selectedColor": "#ff3366",
+		"selectedColor": "#1c1d1a",
 		"borderStyle": "white",
-		"backgroundColor": "#ffffff",
+		"backgroundColor": "#f8f6f2",
 		"list": [{
 				"pagePath": "pages/index/index",
 				"iconPath": "static/images/1-001.png",
@@ -1753,8 +1777,8 @@
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "加载中",
-		"navigationBarBackgroundColor": "#fff",
-		"backgroundColor": "#F8F8F8",
+		"navigationBarBackgroundColor": "#f8f6f2",
+		"backgroundColor": "#f8f6f2",
 		"titleNView": false,
 		"pageOrientation": "portrait" // 全局设置为竖屏
 	},

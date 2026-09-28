@@ -2,6 +2,7 @@
   <view :style="colorStyle">
     <view
       class="product-window"
+      v-show="attr.cartAttr === true"
       :class="
         (attr.cartAttr === true ? 'on' : '') +
         ' ' +

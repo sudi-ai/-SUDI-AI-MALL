@@ -4,20 +4,20 @@
       <view class="labelNav acea-row row-around row-middle">
         <view class="item">
           <text class="iconfont icon-xuanzhong"></text>
-          {{ $t(`100%正品保证`) }}
+          {{ $t(`实拍商品`) }}
         </view>
         <view class="item">
           <text class="iconfont icon-xuanzhong"></text>
-          {{ $t(`所有商品精挑细选`) }}
+          {{ $t(`规格库存实时`) }}
         </view>
         <view class="item">
           <text class="iconfont icon-xuanzhong"></text>
-          {{ $t(`售后无忧`) }}
+          {{ $t(`支持售后`) }}
         </view>
       </view>
       <view class="nav acea-row row-between-wrapper">
         <view>
-          {{ $t(`购物数量`) }}
+          {{ $t(`购物车`) }}
           <text class="num font-num">{{ cartCount }}</text>
         </view>
         <view
@@ -183,7 +183,7 @@
       >
         <view class="emptyBox">
           <image :src="imgHost + '/statics/images/no-thing.png'"></image>
-          <view class="tips">{{ $t(`暂无商品`) }}</view>
+          <view class="tips">{{ $t(`购物车还是空的`) }}</view>
         </view>
         <recommend
           v-if="hostProduct.length"

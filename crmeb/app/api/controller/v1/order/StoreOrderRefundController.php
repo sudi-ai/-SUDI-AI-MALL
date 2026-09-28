@@ -58,7 +58,7 @@ class StoreOrderRefundController
      */
     public function refundDetail(Request $request, $uni)
     {
-        $orderData = $this->services->refundDetail($uni);
+        $orderData = $this->services->refundDetail($uni, (int)$request->uid());
         return app('json')->success($orderData);
     }
 
@@ -114,6 +114,9 @@ class StoreOrderRefundController
             ['refund_explain', ''],
         ]);
         if ($data['id'] == '') return app('json')->fail('参数错误');
+        $refund = $this->services->get(['id' => $data['id'], 'uid' => $request->uid(), 'is_cancel' => 0, 'is_del' => 0]);
+        if (!$refund) return app('json')->fail('订单不存在');
+        if ((int)$refund['refund_type'] !== 4) return app('json')->fail('当前状态不能提交退货物流');
         $res = $this->services->editRefundExpress($data);
         if ($res)
             return app('json')->success('提交成功');

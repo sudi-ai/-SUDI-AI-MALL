@@ -403,6 +403,17 @@ class StoreOrderCreateServices extends BaseServices
         $advanceServices = app()->make(StoreAdvanceServices::class);
         try {
             foreach ($cartInfo as $cart) {
+                $cartNum = (int)$cart['cart_num'];
+                $productId = (int)$cart['productInfo']['id'];
+                $unique = isset($cart['productInfo']['attrInfo']) ? (string)$cart['productInfo']['attrInfo']['unique'] : '';
+                // 创建订单前再次读取实时库存，不能只信订单确认阶段的缓存。
+                // 真正扣减仍由下方原 CRMEB 原子库存方法完成；这里用于尽早阻止过期/并发请求。
+                if (!$combinationId && !$seckillId && !$bargainId && !$advanceId) {
+                    $liveStock = (int)$services->getProductStock($productId, $unique);
+                    if ($cartNum < 1 || $liveStock < $cartNum) {
+                        throw new ApiException('选择的规格库存不足，请刷新后重新下单');
+                    }
+                }
                 //减库存加销量
                 if ($combinationId) $res5 = $res5 && $pinkServices->decCombinationStock((int)$cart['cart_num'], $combinationId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');
                 else if ($seckillId) $res5 = $res5 && $seckillServices->decSeckillStock((int)$cart['cart_num'], $seckillId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');

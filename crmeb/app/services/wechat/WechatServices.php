@@ -237,6 +237,8 @@ class WechatServices extends BaseServices
      */
     public function appAuth(array $userData, string $phone, string $userType = 'app')
     {
+        // Native payloads contain client-provided openid/unionid, not server-verified OAuth proof.
+        throw new ApiException('APP微信授权尚未启用，请使用微信内商城或手机号登录');
         $openid = $userData['openId'] ?? "";
         $userInfo = [
             'phone' => $phone,

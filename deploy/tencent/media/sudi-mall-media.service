@@ -1,0 +1,13 @@
+[Unit]
+Description=Generate lightweight copies of mall upload images
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/sudi-mall/deploy/optimize-images.py
+Nice=15
+IOSchedulingClass=idle
+CPUQuota=25%
+MemoryMax=512M
+TimeoutStartSec=10min
+UMask=0022

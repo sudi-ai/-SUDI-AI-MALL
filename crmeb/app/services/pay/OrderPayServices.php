@@ -141,9 +141,8 @@ class OrderPayServices
                 }
                 break;
             case PayServices::ALIAPY_PAY:
-                if ($wechat) {
-                    $options['returnUrl'] = sys_config('site_url') . '/pages/goods/order_pay_status/index?order_id=' . $orderInfo['order_id'];
-                }
+                $options['returnUrl'] = rtrim(sys_config('site_url'), '/') . '/pages/goods/order_pay_status/index?order_id=' . rawurlencode($orderInfo['order_id']);
+                $options['quitUrl'] = rtrim(sys_config('site_url'), '/') . '/pages/goods/order_details/index?order_id=' . rawurlencode($orderInfo['order_id']);
                 break;
         }
 

@@ -47,6 +47,9 @@ Route::group(function () {
     Route::post('register', 'v1.LoginController/register')->name('register')->option(['real_name' => '手机号注册']);
     //手机号修改密码
     Route::post('register/reset', 'v1.LoginController/reset')->name('registerReset')->option(['real_name' => '手机号修改密码']);
+    //邮箱验证码与注册
+    Route::post('email/register/verify', 'v1.EmailAuthController/verify')->name('emailRegisterVerify')->option(['real_name' => '邮箱注册验证码']);
+    Route::post('email/register', 'v1.EmailAuthController/register')->name('emailRegister')->option(['real_name' => '邮箱注册']);
     // 绑定手机号(静默授权 还未有用户信息)
     Route::post('binding', 'v1.LoginController/binding_phone')->name('bindingPhone')->option(['real_name' => '绑定手机号']);
     // 支付宝复制链接支付 弃用
@@ -131,6 +134,10 @@ Route::group(function () {
         Route::get('user/code', 'v1.LoginController/setLoginKey')->name('getLoginKey')->option(['real_name' => '查看code是否可用']);
         //用户绑定手机号
         Route::post('user/binding', 'v1.LoginController/user_binding_phone')->name('userBindingPhone')->option(['real_name' => '用户绑定手机号']);
+        Route::post('user/password/setup', 'v1.LoginController/passwordSetup')->name('passwordSetup')->option(['real_name' => '首次设置登录密码']);
+        Route::get('user/identities', 'v1.EmailAuthController/identities');
+        Route::post('user/email/verify', 'v1.EmailAuthController/bindVerify');
+        Route::post('user/email/bind', 'v1.EmailAuthController/bind');
         Route::get('logout', 'v1.LoginController/logout')->name('logout')->option(['real_name' => '退出登录']);// 退出登录
         Route::post('switch_h5', 'v1.LoginController/switch_h5')->name('switch_h5')->option(['real_name' => '切换账号']);// 切换账号
         //公共类

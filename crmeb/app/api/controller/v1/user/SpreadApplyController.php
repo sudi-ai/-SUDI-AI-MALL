@@ -40,9 +40,7 @@ class SpreadApplyController
         ]);
         $data['uid'] = $request->uid();
         $userInfo = $request->user();
-        $verifyCode = CacheService::get('code_' . $data['phone']);
-        if (!$verifyCode) return app('json')->fail('请先获取验证码');
-        if ($verifyCode != $data['code']) return app('json')->fail('验证码错误');
+        app()->make(\app\services\user\SmsCodeServices::class)->consume((string)$data['phone'], $data['code'], (string)$request->ip());
         unset($data['code']);
         $id = $this->services->applyPromoter($data, $id, $userInfo);
         return app('json')->success('申请成功', ['id' => $id]);

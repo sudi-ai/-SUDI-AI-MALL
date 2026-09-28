@@ -14,39 +14,39 @@
 
 /* 颜色变量 */
 /* 商家管理 */
-$primary-admin: #2A7EFB;
-$light-primary-admin: #E9F2FE;
-$gradient-primary-admin: #01ABF8;
+$primary-admin: #1c1d1a;
+$light-primary-admin: #eeebe5;
+$gradient-primary-admin: #34352f;
 
 /* 行为相关颜色 */
-$uni-color-primary: #007aff;
+$uni-color-primary: #1c1d1a;
 $uni-color-success: #4cd964;
 $uni-color-warning: #f0ad4e;
 $uni-color-error: #dd524d;
 
 /* crmeb颜色变量 */
-$theme-color:#E93323; // 主题色-主色
-$theme-color-opacity:rgba(233,51,35,.6); // 主题色-透明色
-$bg-star: #f62c2c;  // 主题渐变色-开始
-$bg-end:#f96e29; // 主题渐变色-结束
-$kf-theme : #3875EA; // 客服主题色
-$kf-star:#3875EA; // 客服渐变色
-$kf-end:#1890FC; // 客服渐变色
-$bg-star1: #F73730;  // 主题渐变色1-开始
-$bg-end1:#F86429;   // 主题渐变色1-结束
+$theme-color: #1c1d1a; // 主题色-主色
+$theme-color-opacity: rgba(28,29,26,.6); // 主题色-透明色
+$bg-star: #34352f;  // 主题渐变色-开始
+$bg-end: #1c1d1a; // 主题渐变色-结束
+$kf-theme: #1c1d1a; // 客服主题色
+$kf-star: #34352f; // 客服渐变色
+$kf-end: #1c1d1a; // 客服渐变色
+$bg-star1: #34352f;  // 主题渐变色1-开始
+$bg-end1: #1c1d1a;   // 主题渐变色1-结束
 
 
 
 /* 背景颜色 */
-$uni-bg-color:#ffffff;
-$uni-page-bg-color:#f5f5f5;
+$uni-bg-color: #f8f6f2;
+$uni-page-bg-color: #f8f6f2;
 // $uni-page-bg-color:#fff;
-$uni-bg-color-grey:#f8f8f8;
+$uni-bg-color-grey: #eeebe5;
 $uni-bg-color-hover:#f1f1f1;//点击状态颜色
 $uni-bg-color-mask:rgba(0, 0, 0, 0.4);//遮罩颜色
 
 /* 边框颜色 */
-$uni-border-color:#c8c7cc;
+$uni-border-color: #d6d3cc;
 
 /* 尺寸变量 */
 
@@ -78,7 +78,7 @@ $uni-spacing-col-lg: 24upx;
 $uni-index-margin-row: 20rpx; // 模块垂直magin
 /* 透明度 */
 $uni-opacity-disabled: 0.3; // 组件禁用态的透明度
-$uni-index-box-shadow: 0rpx 3rpx 10rpx 2rpx rgba(0, 0, 0, 0.03);
+$uni-index-box-shadow: none;
 /* 文章场景相关 */
 $uni-color-title: #2C405A; // 文章标题颜色
 $uni-font-size-title:40upx;
@@ -92,6 +92,6 @@ $uni-color-tip: #ccc; // 底部提示文字颜色
 $uni-index-title-font-size: 34rpx;
 
 /* 商家管理 */
-$primary-admin: #2A7EFB;
-$light-primary-admin: #E9F2FE;
-$gradient-primary-admin: #01ABF8;
+$primary-admin: #1c1d1a;
+$light-primary-admin: #eeebe5;
+$gradient-primary-admin: #34352f;

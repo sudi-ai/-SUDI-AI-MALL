@@ -1,0 +1,11 @@
+[Unit]
+Description=Prepare lightweight mall images after uploads
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+Persistent=true
+Unit=sudi-mall-media.service
+
+[Install]
+WantedBy=timers.target
