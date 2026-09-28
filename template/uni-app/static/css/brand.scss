@@ -156,3 +156,7 @@ uni-page-head .uni-page-head__title { font-size:16px !important;font-weight:500 
 @media (prefers-reduced-motion:reduce) {
   .login-wrapper *, .sudi-ai-entry { animation:none !important;transition:none !important; }
 }
+
+/* Keep primary actions comfortable to tap on a phone. */
+.sudi-ai-page button:not(.quick-btn), .email-auth .submit { min-height:44px;padding:20rpx 24rpx;line-height:1.5;font-size:28rpx;box-sizing:border-box; }
+.sudi-publish-btn { border-radius:2rpx !important; }

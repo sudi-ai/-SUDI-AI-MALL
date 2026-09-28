@@ -25,7 +25,7 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(page.locator('uni-page-body')).not.toContainText(/限时秒杀|拼团活动|砍价中心|积分商城|立即签到|抽奖活动|九阳/);
   await expect(page.locator('.hotspot')).toHaveCount(0, {timeout: 30000});
   for (const drawer of await page.locator('.product-window:not(.on)').all()) await expect(drawer).toBeHidden();
-  await page.screenshot({path: 'test-results/home.png', fullPage: true});
+  await page.screenshot({path: 'test-results/home.png', fullPage: true, animations: 'disabled'});
   await product.click();
   await expect(page).toHaveURL(/goods_details/);
   await expect(page.getByText('苏迪 AI 购前助手')).toBeVisible();
@@ -48,7 +48,7 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
       await page.setViewportSize({width, height: 844});
       await expect(page.locator('.logon')).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
-      await page.screenshot({path: `test-results/brand-login-${width}.png`, fullPage: true});
+      await page.screenshot({path: `test-results/brand-login-${width}.png`, fullPage: true, animations: 'disabled'});
     }
     await page.setViewportSize({width: 390, height: 844});
     await expect(page.getByText('未注册手机号验证通过后将自动创建账号', {exact: true})).toBeVisible();
@@ -58,7 +58,7 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
     await field(page, '请输入验证码').fill(sms.code);
     await expect(field(page, '请输入验证码')).toHaveAttribute('autocomplete', 'one-time-code');
     await page.locator('.protocol uni-checkbox').click();
-    await page.screenshot({path: 'test-results/mobile-code-login.png', fullPage: true});
+    await page.screenshot({path: 'test-results/mobile-code-login.png', fullPage: true, animations: 'disabled'});
     const login = page.waitForResponse(r => r.url().includes('/api/login/mobile'));
     await page.getByText('登录 / 注册', {exact: true}).click();
     const registered = await (await login).json();
@@ -69,7 +69,7 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
     await expect(page.locator('.codeIput')).toHaveCount(0);
     await field(page, '设置新密码').fill('MobileSudi42');
     await field(page, '确认新密码').fill('MobileSudi42');
-    await page.screenshot({path: 'test-results/mobile-password-setup.png', fullPage: true});
+    await page.screenshot({path: 'test-results/mobile-password-setup.png', fullPage: true, animations: 'disabled'});
     const setup = page.waitForResponse(r => r.url().includes('/api/user/password/setup'));
     await page.getByText('保存密码', {exact: true}).click();
     expect((await (await setup).json()).status).toBe(200);
@@ -77,7 +77,7 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
     await expect(page.getByText(fixture.productName).first()).toBeVisible();
     const replay = await context.request.post('http://127.0.0.1:8000/api/login/mobile', {data: {phone: sms.phone, captcha: sms.code}});
     expect((await replay.json()).status).not.toBe(200);
-    await page.screenshot({path: 'test-results/mobile-login-shopping.png', fullPage: true});
+    await page.screenshot({path: 'test-results/mobile-login-shopping.png', fullPage: true, animations: 'disabled'});
     const original = await context.request.get('http://127.0.0.1:8000/api/user/identities', {headers: {'Authori-zation': 'Bearer ' + registered.data.token}});
     const uid = (await original.json()).data.uid;
     const returning = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
@@ -95,7 +95,7 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
       await expect(next.getByText('新品上架').first()).toBeVisible();
       const identity = await returning.request.get('http://127.0.0.1:8000/api/user/identities', {headers: {'Authori-zation': 'Bearer ' + result.data.token}});
       expect((await identity.json()).data.uid).toBe(uid);
-      await next.screenshot({path: 'test-results/mobile-password-return.png', fullPage: true});
+      await next.screenshot({path: 'test-results/mobile-password-return.png', fullPage: true, animations: 'disabled'});
     } finally { await returning.close(); }
   } finally { await context.close(); }
 });
@@ -114,7 +114,7 @@ test('buyer signs in through the password login page', async ({browser}) => {
     expect((await (await login).json()).status).toBe(200);
     await expect(page).not.toHaveURL(/\/users\/login\//);
     await expect(page.getByText('新品上架').first()).toBeVisible();
-    await page.screenshot({path: 'test-results/buyer-login.png', fullPage: true});
+    await page.screenshot({path: 'test-results/buyer-login.png', fullPage: true, animations: 'disabled'});
   } finally { await context.close(); }
 });
 
@@ -126,14 +126,14 @@ test('detail renders product images, options, and all three AI entries', async (
   await expect(page.getByText('问 AI 客服', {exact: true})).toBeVisible();
   await expect(page.locator('body')).not.toContainText('includes(item.name)');
   expect(await page.locator('img').evaluateAll(imgs => imgs.some(i => i.src.includes('test.jpg') && i.complete && i.naturalWidth > 0))).toBeTruthy();
-  await page.screenshot({path: 'test-results/detail.png', fullPage: true});
+  await page.screenshot({path: 'test-results/detail.png', fullPage: true, animations: 'disabled'});
   await page.getByText('AI 尺码', {exact: true}).click();
   await expect(field(page, '身高 cm')).toBeVisible();
   await field(page, '身高 cm').fill('165');
   await field(page, '体重 kg').fill('55');
   await page.getByText('获取建议', {exact: true}).click();
   await expect(page.getByText(/商品缺少尺码表|没有可直接匹配|暂未提供可计算/).first()).toBeVisible();
-  await page.screenshot({path: 'test-results/size.png', fullPage: true});
+  await page.screenshot({path: 'test-results/size.png', fullPage: true, animations: 'disabled'});
   await page.goto('/pages/goods_details/index?id=' + fixture.productId);
   await page.getByText('AI 搭配', {exact: true}).click();
   await expect(page.getByText('生成搭配', {exact: true})).toBeVisible();
@@ -155,7 +155,7 @@ test('existing buyer can reach email binding without creating a second account',
   await expect(page.getByText('验证并绑定', {exact: true})).toBeVisible();
   await expect(field(page, '请输入邮箱地址')).toBeVisible();
   await expect(page.getByText('注册并登录', {exact: true})).toHaveCount(0);
-  await page.screenshot({path: 'test-results/email-binding.png', fullPage: true});
+  await page.screenshot({path: 'test-results/email-binding.png', fullPage: true, animations: 'disabled'});
 });
 
 test('category and cart pages load without a blank page', async ({page}) => {
@@ -164,14 +164,14 @@ test('category and cart pages load without a blank page', async ({page}) => {
   await page.goto('/pages/goods_cate/goods_cate');
   await expect(page.locator('uni-page-body')).toContainText(/分类|女装|服饰|暂无/, {timeout: 30000});
   await expect(page.getByText('手机数码', {exact: true}).first()).toBeVisible();
-  await page.screenshot({path: 'test-results/category.png', fullPage: true});
+  await page.screenshot({path: 'test-results/category.png', fullPage: true, animations: 'disabled'});
   await page.getByText('全部商品', {exact: true}).first().click();
   await expect(page.getByText(fixture.productName).first()).toBeVisible({timeout: 30000});
   await page.getByText(fixture.productName).first().click();
   await expect(page).toHaveURL(/goods_details/);
   await page.goto('/pages/order_addcart/order_addcart');
   await expect(page.locator('uni-page-body')).toContainText(/购物车|去逛逛|商品/, {timeout: 30000});
-  await page.screenshot({path: 'test-results/cart.png', fullPage: true});
+  await page.screenshot({path: 'test-results/cart.png', fullPage: true, animations: 'disabled'});
 });
 
 test('merchant product form previews two colors by three sizes', async ({page}) => {
@@ -196,7 +196,7 @@ test('merchant product form previews two colors by three sizes', async ({page}) 
     await row.locator('input').nth(0).fill(String(199 + i));
     await row.locator('input').nth(1).fill(String(i + 1));
   }
-  await page.screenshot({path: 'test-results/merchant-product.png', fullPage: true});
+  await page.screenshot({path: 'test-results/merchant-product.png', fullPage: true, animations: 'disabled'});
   const saved = page.waitForResponse(r => r.url().includes('/api/admin/manage/product/create'));
   await page.getByText('保存草稿', {exact: true}).click();
   expect((await (await saved).json()).status).toBe(200);
@@ -210,7 +210,7 @@ test('merchant product form previews two colors by three sizes', async ({page}) 
   expect((await (await published).json()).status).toBe(200);
   await page.goto('/');
   await expect(page.getByText(title).first()).toBeVisible({timeout: 30000});
-  await page.screenshot({path: 'test-results/published-product.png', fullPage: true});
+  await page.screenshot({path: 'test-results/published-product.png', fullPage: true, animations: 'disabled'});
 });
 
 test('selected SKU goes from detail to cart and checkout with the saved address', async ({page}) => {
@@ -236,5 +236,5 @@ test('selected SKU goes from detail to cart and checkout with the saved address'
   await expect(page).toHaveURL(/order_confirm/);
   await expect(page.locator('.addressCon')).toContainText('CI test only');
   await expect(page.getByText('提交订单', {exact: true})).toBeVisible();
-  await page.screenshot({path: 'test-results/checkout.png', fullPage: true});
+  await page.screenshot({path: 'test-results/checkout.png', fullPage: true, animations: 'disabled'});
 });
