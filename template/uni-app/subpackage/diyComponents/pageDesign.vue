@@ -45,9 +45,12 @@
       ></tabNav>
 
       <view class="index">
+        <view v-if="isHome && homeLinks.length" class="nu-home-links">
+          <view v-for="link in homeLinks" :key="link.url" @click="openHomeLink(link.url)">{{ link.label }}</view>
+        </view>
         <!-- 自定义样式 -->
         <block v-for="(item, index) in styleConfig" :key="index">
-          <view :id="item.id" v-if="!isHome || !['seckill','bargain','combination','presale','pointsMall','liveBroadcast','promotionList'].includes(item.name)">
+          <view :id="item.id" v-if="!isHome || !['seckill','bargain','combination','presale','pointsMall','liveBroadcast','promotionList','menus','goodList','goodRecommend'].includes(item.name)">
             <userInfor
               v-if="item.name == 'userInfor'"
               :dataConfig="item"
@@ -160,6 +163,7 @@
             <!-- #ifndef APP -->
             <richText
               v-else-if="item.name == 'richText'"
+              :brand="isHome"
               :dataConfig="item"
             ></richText>
             <videos
@@ -460,6 +464,19 @@ export default {
     };
   },
   computed: {
+    homeLinks() {
+      const links = [];
+      this.styleConfig.filter(item => item.name === 'menus').forEach(item => {
+        ((item.menuConfig || {}).list || []).forEach(menu => {
+          const info = menu.info || [];
+          const label = info[0] && info[0].value;
+          const url = info[1] && info[1].value;
+          if (!menu.show || !label || !url || url.includes('/goods_list/') || links.some(link => link.url === url)) return;
+          links.push({ label: label === '商品分类' ? '全部分类' : label, url });
+        });
+      });
+      return links;
+    },
     // #ifdef MP
     appletStyle() {
       return {
@@ -512,6 +529,13 @@ export default {
     },
   },
   methods: {
+    openHomeLink(url) {
+      if (/^https?:\/\//.test(url)) {
+        uni.navigateTo({ url: '/pages/annex/web_view/index?url=' + encodeURIComponent(url) });
+      } else {
+        uni.navigateTo({ url, fail: () => uni.switchTab({ url }) });
+      }
+    },
     reconnect() {
       this.$emit("reconnect");
     },

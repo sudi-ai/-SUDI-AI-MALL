@@ -2,36 +2,21 @@
 	<view class="wf-item-page wf-page0">
 		<view class='pictrue'>
 			<easy-loadimage
-			mode="widthFix"
+			mode="aspectFit"
 			:image-src="item.image"
 			width="100%"
-			height="345rpx"
-			borderRadius="16rpx 16rpx 0 0"></easy-loadimage>
+			height="100%"
+			borderRadius="0"></easy-loadimage>
 		</view>
 		<view class="info_box">
-			<view class="w-full line2 fs-28 text--w111-333 lh-40rpx">
-				<text v-if="item.brand_name" class="brand-tag">{{ item.brand_name }}</text>{{item.store_name}}
-			</view>
-			<view class="mt-8">
-				<view class="flex-y-center flex-wrap mt-8">
-					<baseMoney :money="item.price" symbolSize="24" integerSize="40" decimalSize="24" weight></baseMoney>
-					<view class="inline-block h-26 lh-28rpx rd-14rpx bg--w111-F7E9CD fs-22 ml-8" 
-						v-if="Number(item.vip_price) > 0">
-						<text class="inline-block h-26 lh-28rpx svip_rd fs-18 bg--w111-484643 text--w111-FDDAA4 px-8">SVIP</text>
-						<text class="px-8 fs-22 SemiBold">¥{{item.vip_price}}</text>
-					</view>
-				</view>
-				<view class="flex-between-center mt-12">
-					<text class="fs-22 text--w111-999">已售{{item.sales}}{{item.unit_name}}</text>
-					<view class="w-44 h-44 rd-24 bg-gradient flex-center" v-if="goDetail=='goDetail'">
-						<text class="iconfont icon-ic_ShoppingCart1 text--w111-fff fs-26"></text>
-					</view>
-					<view class="w-44 h-44 rd-24 bg-gradient flex-center" @tap.stop="addCartChange" v-else>
-						<text class="iconfont icon-ic_ShoppingCart1 text--w111-fff fs-26"></text>
-					</view>
-				</view>
-			</view>
-		</view>
+          <view class="nu-product-name line2"><text v-if="item.brand_name" class="brand-tag">{{ item.brand_name }}</text>{{ item.store_name }}</view>
+          <view class="nu-product-bottom">
+            <text class="nu-product-price">¥{{ item.price }}</text>
+            <view v-if="goDetail === 'goDetail'" class="nu-product-action" aria-label="选择款式和尺码"><text>↗</text></view>
+            <view v-else class="nu-product-action" aria-label="加入购物车" @tap.stop="addCartChange"><text>＋</text></view>
+          </view>
+          <view v-if="Number(item.vip_price) > 0" class="nu-member-price">会员价 ¥{{ item.vip_price }}</view>
+        </view>
 	</view>
 </template>
 <script>
@@ -73,6 +58,13 @@
 	}
 </script>
 <style lang="scss" scoped>
+    .pictrue { position:relative;width:100%;height:0;padding-bottom:133.333333%;background:#f0eeea; }
+    .pictrue ::v-deep .easy-loadimage { position:absolute;inset:0; }
+    .nu-product-name { height:82.5rpx; }
+    .nu-product-bottom { display:flex;align-items:center;justify-content:space-between;gap:8rpx;margin-top:8rpx; }
+    .nu-product-price { font-size:29rpx;font-weight:400;letter-spacing:0; }
+    .nu-product-action { min-width:72rpx;min-height:72rpx;display:flex;align-items:center;justify-content:flex-end;font-size:30rpx; }
+    .nu-member-price { font-size:20rpx;color:#77776e; }
 	.wf-item-page {
 		background: #fff;
 		overflow: hidden;

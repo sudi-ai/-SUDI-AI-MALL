@@ -163,3 +163,8 @@ uni-page-head .uni-page-head__title { font-size:16px !important;font-weight:500 
 
 /* The source-owned wordmark replaces the old decoration logo above search. */
 .nu-home-comb .serch-wrapper > .logo, .nu-home-comb .serch-wrapper > .title { display:none !important; }
+
+/* Homepage utility links and existing notices share the quiet catalog typography. */
+.nu-home-links { display:flex;flex-wrap:wrap;gap:0 32rpx;padding:4rpx 36rpx 14rpx;border-bottom:1px solid var(--nu-line);margin:0 0 18rpx; }
+.nu-home-links > view { font-size:22rpx;line-height:80rpx;color:var(--nu-muted); }
+.nu-home-note { margin:0 36rpx;padding:18rpx 0 6rpx;border-bottom:1px solid var(--nu-line);color:var(--nu-muted);font-size:23rpx; }

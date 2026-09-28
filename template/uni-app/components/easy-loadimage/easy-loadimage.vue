@@ -3,7 +3,7 @@
     <image
       class="origin-img"
       :src="imageSrc"
-      mode="aspectFill"
+      :mode="mode === 'aspectFit' ? 'aspectFit' : 'aspectFill'"
       v-if="loadImg && !isLoadError"
       v-show="showImg"
       :style="[imgStyle]"
@@ -18,7 +18,7 @@
     <image
       class="border-img"
       :src="borderSrc"
-      mode="aspectFill"
+      :mode="mode === 'aspectFit' ? 'aspectFit' : 'aspectFill'"
       v-if="loadImg && !isLoadError && borderSrc"
       v-show="showImg"
       :style="[imgStyle]"

@@ -20,6 +20,12 @@ test('fresh H5 home displays the ordinary product and opens detail', async ({pag
   await expect(page.getByText('新品上架').first()).toBeVisible({timeout: 30000});
   const product = page.getByText(fixture.productName, {exact: false}).first();
   await expect(product).toBeVisible();
+  await expect(page.getByText(fixture.productName, {exact: true})).toHaveCount(1);
+  const portrait = page.locator('.sudi-new-products .wf-item-page .pictrue').first();
+  await expect(portrait).toBeVisible();
+  const frame = await portrait.boundingBox();
+  expect(frame.height / frame.width).toBeCloseTo(4 / 3, 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
   await expect(page.getByText('AI 购物', {exact: true}).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('includes(item.name)');
   await expect(page.locator('uni-page-body')).not.toContainText(/限时秒杀|拼团活动|砍价中心|积分商城|立即签到|抽奖活动|九阳/);
@@ -172,6 +178,31 @@ test('category and cart pages load without a blank page', async ({page}) => {
   await page.goto('/pages/order_addcart/order_addcart');
   await expect(page.locator('uni-page-body')).toContainText(/购物车|去逛逛|商品/, {timeout: 30000});
   await page.screenshot({path: 'test-results/cart.png', fullPage: true, animations: 'disabled'});
+});
+
+test('brand catalog keeps all styles accessible and encodes category and search routes', async ({page}) => {
+  const names = ['上衣','衬衫','连衣裙','半身裙','裤装','外套','套装','T恤','POLO衫','雪纺衫','背心吊带','卫衣','针织衫','毛衣','针织开衫','牛仔裤','休闲裤','西装裤','卫裤','打底裤','短裤','连体裤','西装','夹克','风衣','毛呢大衣','羽绒服','棉服','马甲','皮衣','旗袍','汉服','礼服','婚纱'];
+  await page.route('**/api/category', route => route.fulfill({json: {status: 200, data: [
+    {id: 900, cate_name: '女装', children: names.map((cate_name, i) => ({id: 1000 + i, cate_name}))}
+  ]}}));
+  await page.goto('/pages/goods_cate/goods_cate');
+  await expect(page.locator('.nu-category-link')).toHaveCount(8);
+  await expect(page.locator('.nu-catalog-content uni-image')).toHaveCount(0);
+  for (const width of [320, 390, 430]) {
+    await page.setViewportSize({width, height: 844});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+    await page.screenshot({path: `test-results/brand-catalog-${width}.png`, fullPage: true, animations: 'disabled'});
+  }
+  await page.locator('.nu-more-toggle').click();
+  await expect(page.locator('.nu-category-link')).toHaveCount(34);
+  await page.getByText('婚纱', {exact: true}).click();
+  await expect(page).toHaveURL(/sid=1033/);
+  await page.goto('/pages/goods_cate/goods_cate');
+  await expect(page.locator('.nu-category-link')).toHaveCount(8);
+  await page.locator('.nu-catalog-search input').fill('衬衫 & 裙');
+  await page.locator('.nu-search-submit').click();
+  await expect(page).toHaveURL(/goods_list\/index\?searchValue=/);
+  expect(new URL(page.url()).searchParams.get('searchValue')).toBe('衬衫 & 裙');
 });
 
 test('merchant product form previews two colors by three sizes', async ({page}) => {

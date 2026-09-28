@@ -1,7 +1,10 @@
 <template>
   <!-- 富文本 -->
   <view v-show="!isSortType">
-    <common-wrapper :config="configData">
+    <view v-if="brand && description" class="nu-home-note">
+      <jyf-parser :html="description" :tag-style="brandTagStyle"></jyf-parser>
+    </view>
+    <common-wrapper v-else :config="configData">
       <view class="richText" v-if="description" :style="[richTextStyle]">
         <!-- #ifndef APP-PLUS -->
         <jyf-parser
@@ -25,6 +28,7 @@ import parser from "@/components/jyf-parser/jyf-parser";
 export default {
   name: "richText",
   props: {
+    brand: Boolean,
     dataConfig: {
       type: Object,
       default: () => {},
@@ -40,6 +44,13 @@ export default {
   },
   data() {
     return {
+      brandTagStyle: {
+        div: 'margin:0 0 10px;line-height:1.7;',
+        p: 'margin:4px 0 0;font-size:12px;line-height:1.7;',
+        strong: 'font-size:12px;font-weight:500;',
+        img: 'width:100%;display:block;',
+        table: 'width:100%', video: 'width:100%'
+      },
       tagStyle: {
         img: "width:100%;display:block;",
         table: "width:100%",
@@ -97,6 +108,9 @@ export default {
     description() {
       let description = this.dataConfig.richText.val;
       if (description) {
+        // Only normalize presentation; keep the configured shopping notice and contact text.
+        if (this.brand) description = description.replace(/<(div|p|strong)\b([^>]*)>/gi, (tag, name, attrs) =>
+          '<' + name + attrs.replace(/\sstyle\s*=\s*("[^"]*"|'[^']*')/gi, '') + '>');
         description = description.replace(
           /<img/gi,
           '<img style="max-width:100%;height:auto;float:left;display:block" '
