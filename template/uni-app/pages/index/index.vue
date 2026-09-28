@@ -16,7 +16,7 @@
       minHeight: windowHeight + 'px',
     }"
   >
-    <view class="nu-home-brand"><BrandLockup compact /><view class="nu-season">日常之间，自有风格</view></view>
+    <view class="nu-home-brand"><BrandLockup compact /><view class="nu-season"><text>日常之间</text><text>自有风格</text></view></view>
     <PageDesign
       :style="colorStyle"
       :diyData="currentDiyData"

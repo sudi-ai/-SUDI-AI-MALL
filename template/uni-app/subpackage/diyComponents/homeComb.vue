@@ -1,5 +1,5 @@
 <template>
-  <view class="page_count">
+  <view class="page_count nu-home-comb">
     <common-wrapper :config="configData">
       <div class="bag-gradient" :style="[bgGradientStyle]"></div>
       <view class="bg-img" v-if="imgUrls.length">

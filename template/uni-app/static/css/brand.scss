@@ -44,7 +44,16 @@ uni-page-head .uni-page-head__title { font-size:16px !important;font-weight:500 
 .nu-module { background-color:var(--nu-paper) !important; }
 .nu-module-content { background-color:var(--nu-paper) !important;border-radius:4rpx !important;box-shadow:none !important; }
 .nu-home-brand { padding:44rpx 36rpx 34rpx;display:flex;align-items:center;justify-content:space-between;gap:24rpx; }
-.nu-season { color:var(--nu-muted);font-size:19rpx;writing-mode:vertical-rl;letter-spacing:4rpx;line-height:1.8; }
+.nu-season { color:var(--nu-muted);font-size:19rpx;letter-spacing:4rpx;line-height:1.8;text-align:right;flex-shrink:0; }
+.nu-season text, .nu-season uni-text { display:block; }
+.nu-home-comb .bag-gradient, .nu-home-comb .mp-header { background:var(--nu-paper) !important; }
+.nu-home-comb .serch-wrapper .input, .nu-home-comb .serch-wrapper .uninput {
+  background:transparent !important;color:var(--nu-muted) !important;border:1px solid var(--nu-line);border-radius:2rpx !important;
+}
+.nu-home-comb .swiperTxt, .nu-home-comb .newsTitle, .nu-home-comb .serch-wrapper .iconfont,
+.nu-home-comb .navTabBox .longItem, .nu-home-comb .category .iconfont { color:var(--nu-ink) !important; }
+.nu-home-comb .navTabBox .longItem.click { border-bottom-color:var(--nu-ink) !important; }
+.shoppingCart .noCart, .shoppingCart .emptyBox { background:var(--nu-paper) !important; }
 .nu-account-brand { padding:44rpx 40rpx 30rpx;border-bottom:1px solid var(--nu-line); }
 .nu-form-title { font-size:34rpx;font-weight:600;line-height:1.5;margin:54rpx 0 30rpx; }
 /* Navigation uses the existing routes, badge and click handlers. */

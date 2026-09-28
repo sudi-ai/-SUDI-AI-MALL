@@ -225,9 +225,11 @@
 	}
 </script>
 
-<style lang="scss">
-	page {
-		background-color: #fff !important;
+<style lang="scss" scoped>
+	.ChangePassword {
+		min-height: 100vh;
+		box-sizing: border-box;
+		background-color: #f8f6f2;
 	}
 
 	.ChangePassword .phone {
