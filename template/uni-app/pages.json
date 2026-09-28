@@ -77,7 +77,7 @@
 			"path": "pages/sudi_ai/index",
 			"style": {
 				"navigationBarTitleText": "苏迪 AI 购物",
-				"navigationBarBackgroundColor": "#ffffff",
+				"navigationBarBackgroundColor": "#f8f6f2",
 				"navigationBarTextStyle": "black"
 			}
 		},
@@ -1745,9 +1745,9 @@
 	],
 	"tabBar": { // 底部菜单
 		"color": "#282828",
-		"selectedColor": "#ff3366",
+		"selectedColor": "#1c1d1a",
 		"borderStyle": "white",
-		"backgroundColor": "#ffffff",
+		"backgroundColor": "#f8f6f2",
 		"list": [{
 				"pagePath": "pages/index/index",
 				"iconPath": "static/images/1-001.png",
@@ -1777,8 +1777,8 @@
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "加载中",
-		"navigationBarBackgroundColor": "#fff",
-		"backgroundColor": "#F8F8F8",
+		"navigationBarBackgroundColor": "#f8f6f2",
+		"backgroundColor": "#f8f6f2",
 		"titleNView": false,
 		"pageOrientation": "portrait" // 全局设置为竖屏
 	},

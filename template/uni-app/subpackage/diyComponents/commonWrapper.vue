@@ -1,6 +1,6 @@
 <template>
-  <view :style="[bottomBgColor]">
-    <view :style="[boxStyle]">
+  <view class="nu-module" :style="[bottomBgColor]">
+    <view class="nu-module-content" :style="[boxStyle]">
       <slot></slot>
     </view>
   </view>
@@ -178,6 +178,11 @@ export default {
         style["z-index"] = zIndexConfig.val;
         // style["position"] = "relative";
       }
+      // One mobile brand surface, while retaining the configured module spacing.
+      style.background = '#f8f6f2';
+      style['background-image'] = 'none';
+      style['border-radius'] = '4rpx';
+      style['box-shadow'] = 'none';
       return style;
     },
     bottomBgColor() {
@@ -190,6 +195,7 @@ export default {
           ? config.bottomBgColor.color[0].item
           : "";
       }
+      style.background = '#f8f6f2';
       return style;
     },
   },

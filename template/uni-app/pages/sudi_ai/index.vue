@@ -70,23 +70,23 @@ export default {
 </script>
 
 <style scoped>
-.sudi-ai-page{min-height:100vh;background:#f7f7f7;padding:28rpx;box-sizing:border-box}
-.hero,.ask-box,.product,.message,.empty{background:#fff;border-radius:20rpx}
+.sudi-ai-page{min-height:100vh;background:#f8f6f2;padding:28rpx;box-sizing:border-box}
+.hero,.ask-box,.product,.message,.empty{background:#fff;border-radius:4rpx}
 .hero{padding:34rpx;margin-bottom:22rpx}
 .title{display:block;font-size:42rpx;font-weight:700;color:#222}
 .desc{display:block;margin-top:14rpx;font-size:26rpx;line-height:1.6;color:#777}
 .quick-row{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:22rpx}
-.quick-btn{margin:0;padding:0 22rpx;height:58rpx;line-height:58rpx;border-radius:999rpx;background:#f7f7f7;color:#555;font-size:23rpx}
+.quick-btn{margin:0;padding:0 22rpx;height:58rpx;line-height:58rpx;border-radius:2rpx;background:#f8f6f2;color:#555;font-size:23rpx}
 .result-head{padding:4rpx 4rpx 18rpx;font-size:25rpx;color:#777}
 .ask-box{padding:24rpx;margin-bottom:24rpx}
-textarea{width:100%;height:150rpx;background:#f7f7f7;border-radius:14rpx;padding:20rpx;box-sizing:border-box;font-size:28rpx}
-.ask-btn{margin-top:18rpx;background:#ff3366;color:#fff;border-radius:999rpx;font-size:28rpx}
+textarea{width:100%;height:150rpx;background:#f8f6f2;border-radius:4rpx;padding:20rpx;box-sizing:border-box;font-size:28rpx}
+.ask-btn{margin-top:18rpx;background:#1c1d1a;color:#fff;border-radius:2rpx;font-size:28rpx}
 .ask-btn[disabled]{opacity:.6}
 .product{display:flex;padding:18rpx;margin-bottom:18rpx}
-.product image{width:190rpx;height:190rpx;border-radius:14rpx;background:#eee;flex:none}
+.product image{width:190rpx;height:190rpx;border-radius:4rpx;background:#eee;flex:none}
 .info{min-width:0;padding:8rpx 0 8rpx 22rpx;display:flex;flex-direction:column}
 .name{font-size:29rpx;line-height:1.45;color:#222}
-.price{margin-top:auto;font-size:34rpx;font-weight:700;color:#ff3366}
+.price{margin-top:auto;font-size:34rpx;font-weight:700;color:#1c1d1a}
 .stock{margin-top:8rpx;font-size:23rpx;color:#999}
 .message,.empty{padding:28rpx;margin-bottom:20rpx;color:#777;font-size:26rpx;line-height:1.5}
 </style>

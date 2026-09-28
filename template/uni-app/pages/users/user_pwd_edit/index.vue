@@ -1,6 +1,8 @@
 <template>
 	<view :style="colorStyle">
 		<view class="ChangePassword">
+            <BrandLockup compact />
+            <view class="nu-form-title">{{ setupMode ? '设置登录密码' : '修改登录密码' }}</view>
 			<form @submit="editPwd">
 				<view class="phone">{{$t(`当前手机号`)}}：{{phone}}</view>
 				<view class="password-hint">{{ setupMode ? '注册成功！设置密码后，下次可选择密码或验证码登录。' : '设置后可使用当前手机号和密码登录。' }}</view>

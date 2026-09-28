@@ -1,7 +1,7 @@
 <template>
   <!-- 底部导航 -->
   <view v-if="showTabBar">
-    <view class="fixed-lb w-full pb-safe z-999" :style="[bgColor]">
+    <view class="nu-bottom-nav fixed-lb w-full pb-safe z-999" :style="[bgColor]">
       <view class="page-footer-wrapper">
         <view
           class="page-footer"

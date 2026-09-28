@@ -2,7 +2,7 @@
 	<div class="register absolute">
 		<div class="shading">
 			<div class="pictrue acea-row row-center-wrapper">
-				<image src="../static/logo2.png" />
+				<BrandLockup compact />
 			</div>
 		</div>
 		<div class="whiteBg">

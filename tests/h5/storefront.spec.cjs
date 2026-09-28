@@ -41,16 +41,25 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
       localStorage.setItem('UNI-APP-CRMEB:TAG', JSON.stringify({type: 'object', data: [{key: 'login_back_url', expire: 0}]}));
     }, '/pages/goods_details/index?id=' + fixture.productId);
     await page.goto('http://127.0.0.1:8000/pages/users/login/index');
+    await expect(page.locator('.brand-name')).toHaveText('Nuyoahcc');
+    await expect(page.getByText('杭州苏迪服饰有限公司', {exact: true})).toBeVisible();
+    for (const width of [320, 390, 430]) {
+      await page.setViewportSize({width, height: 844});
+      await expect(page.locator('.logon')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+      await page.screenshot({path: `test-results/brand-login-${width}.png`, fullPage: true});
+    }
+    await page.setViewportSize({width: 390, height: 844});
     await expect(page.getByText('未注册手机号验证通过后将自动创建账号', {exact: true})).toBeVisible();
     await expect(page.locator('input[type=password]')).toHaveCount(0);
     await expect(page.getByText('邮箱注册', {exact: true})).toHaveCount(0);
-    await field(page, '输入手机号码').fill(sms.phone);
-    await field(page, '填写验证码').fill(sms.code);
-    await expect(field(page, '填写验证码')).toHaveAttribute('autocomplete', 'one-time-code');
+    await field(page, '请输入手机号').fill(sms.phone);
+    await field(page, '请输入验证码').fill(sms.code);
+    await expect(field(page, '请输入验证码')).toHaveAttribute('autocomplete', 'one-time-code');
     await page.locator('.protocol uni-checkbox').click();
     await page.screenshot({path: 'test-results/mobile-code-login.png', fullPage: true});
     const login = page.waitForResponse(r => r.url().includes('/api/login/mobile'));
-    await page.getByText('验证并登录', {exact: true}).click();
+    await page.getByText('登录 / 注册', {exact: true}).click();
     const registered = await (await login).json();
     expect(registered.status).toBe(200);
     expect(registered.data.needs_password_setup).toBe(true);
@@ -74,7 +83,7 @@ test('mobile SMS signup sets a password, returns to shopping, and reuses the acc
     try {
       const next = await returning.newPage();
       await next.goto('http://127.0.0.1:8000/pages/users/login/index');
-      await next.getByText('密码登录', {exact: true}).click();
+      await next.getByText('账号登录', {exact: true}).click();
       await field(next, '手机号、邮箱或账号').fill(sms.phone);
       await field(next, '填写登录密码').fill('MobileSudi42');
       await next.locator('.protocol uni-checkbox').click();
@@ -95,7 +104,7 @@ test('buyer signs in through the password login page', async ({browser}) => {
   const page = await context.newPage();
   try {
     await page.goto('http://127.0.0.1:8000/pages/users/login/index');
-    await page.getByText('密码登录', {exact: true}).click();
+    await page.getByText('账号登录', {exact: true}).click();
     await field(page, '手机号、邮箱或账号').fill('sudibuyer');
     await field(page, '填写登录密码').fill('SudiCiOnly42');
     await page.locator('.protocol uni-checkbox').click();

@@ -404,8 +404,8 @@ export default {
       isGiftOrder: 0,
       realPriceData: {
         is_vip: 0,
-        price: 0,
-        real_price: 0,
+        price: null,
+        real_price: null,
       },
     };
   },

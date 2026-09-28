@@ -1,5 +1,6 @@
 <template>
   <view class="new-users copy-data" :style="{ height: pageHeight }">
+    <view class="nu-account-brand"><BrandLockup compact /></view>
     <view class="top" :style="colorStyle">
       <!-- #ifdef MP || APP-PLUS -->
       <view class="sys-head">

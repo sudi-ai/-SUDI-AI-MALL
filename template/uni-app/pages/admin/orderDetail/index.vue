@@ -1055,7 +1055,7 @@ export default {
 }
 
 .splitTitle .title {
-  color: #2291f8;
+  color: #1c1d1a;
 }
 
 /*商户管理订单详情*/
@@ -1313,7 +1313,7 @@ export default {
 }
 
 .order-details .footer .wait {
-  color: #2a7efb;
+  color: #1c1d1a;
   margin-right: 30rpx;
 }
 

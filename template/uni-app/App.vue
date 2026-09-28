@@ -396,3 +396,7 @@ page {
   height: 100vh;
 }
 </style>
+
+<style lang="scss">
+@import "@/static/css/brand.scss";
+</style>

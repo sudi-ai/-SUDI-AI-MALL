@@ -12,7 +12,7 @@ export default {
 	data() {
 		return {
 			disabled: false,
-			text: this.$t('验证码'),
+			text: this.$t('获取验证码'),
 			runTime: undefined,
 			captchaType: 'clickWord'
 		};

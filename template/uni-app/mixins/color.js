@@ -1,3 +1,4 @@
+import { brandColorStyle } from '@/utils/brand';
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
@@ -11,14 +12,14 @@
 export default {
   data() {
     return {
-      colorStyle: "",
+      colorStyle: brandColorStyle,
       colorStatus: "",
     };
   },
   created() {
-    this.colorStyle = uni.getStorageSync("viewColor");
+    this.colorStyle = brandColorStyle;
     uni.$on("ok", (data) => {
-      this.colorStyle = data;
+      this.colorStyle = brandColorStyle;
     });
   },
   methods: {},

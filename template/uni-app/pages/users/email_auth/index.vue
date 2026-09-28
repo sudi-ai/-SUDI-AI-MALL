@@ -1,5 +1,6 @@
 <template>
 	<view class="email-auth">
+		<BrandLockup compact />
 		<view class="title">{{ binding ? '绑定登录邮箱' : '邮箱注册' }}</view>
 		<view v-if="binding">绑定后保留当前账号、订单和余额，邮箱与手机号共用下方设置的密码。</view>
 		<view class="field"><input v-model.trim="email" type="text" maxlength="100" placeholder="请输入邮箱地址" /></view>
@@ -68,10 +69,10 @@ export default {
 <style lang="scss" scoped>
 .email-auth { padding: 48rpx; color: #222; }
 .title { margin: 30rpx 0 48rpx; font-size: 40rpx; font-weight: 600; }
-.field { margin: 24rpx 0; padding: 24rpx 18rpx; border-bottom: 1px solid #eee; }
+.field { margin: 24rpx 0; padding: 24rpx 18rpx; border-bottom: 1px solid #d6d3cc; }
 .field input { height: 56rpx; font-size: 28rpx; }
 .code-row { display: flex; align-items: center; justify-content: space-between; }
-.code-row button { margin: 0; padding: 0 18rpx; font-size: 24rpx; color: #e93323; background: transparent; }
+.code-row button { margin: 0; padding: 0 18rpx; font-size: 24rpx; color: #1c1d1a; background: transparent; }
 .protocol { margin: 36rpx 0; font-size: 24rpx; color: #666; }
-.submit { margin-top: 30rpx; color: white; background: #e93323; border-radius: 44rpx; }
+.submit { margin-top: 30rpx; color: white; background: #1c1d1a; border-radius: 2rpx; }
 </style>
