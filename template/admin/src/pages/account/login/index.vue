@@ -247,6 +247,7 @@ export default {
 <style lang="scss" scoped>
 .nu-admin-login {
   --paper:#f8f6f2; --ink:#1c1d1a; --muted:#77776e; --line:#d6d3cc;
+  --prev-color-primary:var(--ink); --prev-color-primary-light-3:#353630; --prev-color-primary-light-7:#77776e;
   position:relative;display:flex;flex-direction:column;align-items:center;
   min-height:100vh;min-height:100svh;padding:68px 32px 24px;box-sizing:border-box;
   overflow-x:hidden;background:var(--paper);color:var(--ink);
@@ -297,3 +298,4 @@ export default {
   .nu-admin-footer { margin-top:56px; }
 }
 </style>
+
