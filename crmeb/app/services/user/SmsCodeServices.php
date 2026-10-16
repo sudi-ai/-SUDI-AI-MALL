@@ -77,7 +77,8 @@ class SmsCodeServices
             max(0, (int)Config::get('sms.maxIpCount', 50)),
         ];
         $reserve = <<<'LUA'
-local wait = math.max(redis.call('TTL', KEYS[1]), redis.call('TTL', KEYS[2]))
+local wait = math.ceil(math.max(redis.call('PTTL', KEYS[1]), redis.call('PTTL', KEYS[2])) / 1000)
+if redis.call('TTL', KEYS[1]) == -1 or redis.call('TTL', KEYS[2]) == -1 then return {1, tonumber(ARGV[3])} end
 if wait > 0 then return {1, wait} end
 for i = 3, 5 do
     if tonumber(redis.call('GET', KEYS[i]) or '0') >= tonumber(ARGV[i + 1]) then
