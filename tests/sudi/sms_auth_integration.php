@@ -242,6 +242,45 @@ foreach ([0, -1, 31, 'invalid'] as $minutes) {
         'invalid verification lifetime fails before SMS delivery');
 }
 $cacheConfig = Config::get('cache');
+// Definitive rejections refund delivery budgets, while the short abuse cooldown remains.
+$rejectedPhone = smsPhone();
+$rejectedIp = $ipPrefix . '20';
+smsCheck(smsRejected(function () use ($codes, $rejectedPhone, $rejectedIp) {
+    $codes->issue($rejectedPhone, $rejectedIp, 654321, 5, function () { return false; });
+}), 'definitive provider rejection is reported');
+smsCheck((int)Cache::get('sms.phone.' . $rejectedPhone . '.' . date('Ymd')) === 0
+    && (int)Cache::get('sms.ip.' . $rejectedIp . '.' . date('Ymd')) === 0,
+    'definitive rejection refunds phone and shared IP delivery quotas');
+smsCheck(Cache::has('sms.auth.cooldown.' . $rejectedPhone), 'rejected requests retain a short anti-abuse cooldown');
+try {
+    $codes->issue($sendPhone, $ipPrefix . '4', 654321, 5, function () { throw new RuntimeException('must not send'); });
+    throw new RuntimeException('cooldown unexpectedly allowed');
+} catch (\app\services\user\SmsRateLimitException $e) {
+    smsCheck($e->reason === 'cooldown' && $e->retryAfter > 0 && $e->retryAfter <= 60,
+        'cooldown reports actual remaining seconds after the pending owner releases');
+}
+foreach (['minute', 'phone', 'ip'] as $bucket) {
+    $boundaryPhone = smsPhone();
+    $boundaryIp = $ipPrefix . '21';
+    $key = $bucket === 'minute' ? 'sms.minute.' . $boundaryPhone . date('YmdHi')
+        : ($bucket === 'phone' ? 'sms.phone.' . $boundaryPhone . '.' . date('Ymd') : 'sms.ip.' . $boundaryIp . '.' . date('Ymd'));
+    Cache::set($key, 1, 120);
+    smsCheck(smsIssue($boundaryPhone, $boundaryIp, $counter), "$bucket allows the last available slot");
+    Cache::delete('sms.auth.cooldown.' . $boundaryPhone);
+    smsCheck(!smsIssue($boundaryPhone, $boundaryIp, $counter), "$bucket rejects immediately after the last slot");
+    Cache::delete($key);
+}
+$subsecondPhone = smsPhone();
+$codes->raw("return redis.call('SET', KEYS[1], '1', 'PX', 500)", ['sms.auth.cooldown.' . $subsecondPhone]);
+$earlyCalls = 0;
+try {
+    $codes->issue($subsecondPhone, '192.0.2.99', 654321, 5, function () use (&$earlyCalls) { $earlyCalls++; return true; });
+    throw new RuntimeException('Subsecond cooldown unexpectedly allowed');
+} catch (\app\services\user\SmsRateLimitException $e) {
+    smsCheck($e->reason === 'cooldown' && $e->retryAfter === 1 && $earlyCalls === 0,
+        'subsecond cooldown cannot be bypassed by TTL rounding');
+}
+smsCheck($ttl > 280 && $ttl <= 300, 'code expiry remains separate from the sixty-second cooldown');
 try {
     Config::set(array_merge($cacheConfig, ['default' => 'file']), 'cache');
     smsCheck(smsRejected(function () use ($codes, $phone) { $codes->consume($phone, '654321', '192.0.2.13'); }),

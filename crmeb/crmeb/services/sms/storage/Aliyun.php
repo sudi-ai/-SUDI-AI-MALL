@@ -16,6 +16,7 @@ use AlibabaCloud\SDK\Dysmsapi\V20170525\Models\SendSmsRequest;
 use AlibabaCloud\Tea\Exception\TeaError;
 use AlibabaCloud\Tea\Utils\Utils\RuntimeOptions;
 use crmeb\exceptions\ApiException;
+use app\services\user\SmsSendRejectedException;
 use crmeb\services\sms\BaseSms;
 use Darabonba\OpenApi\Models\Config as AliConfig;
 use think\exception\ValidateException;
@@ -58,7 +59,7 @@ class Aliyun extends BaseSms
             return $this->setError('电话号码不能为空');
         }
         if (!$this->AccessKeyId || !$this->AccessKeySecret || !$this->SignName || !$templateId) {
-            throw new ApiException('手机验证码服务尚未配置完成，请联系商城客服');
+            throw new SmsSendRejectedException('手机验证码服务尚未配置完成');
         }
 
         $config = new AliConfig([
@@ -91,13 +92,15 @@ class Aliyun extends BaseSms
             }
             if ($resp->body->code !== 'OK') {
                 Log::warning('Aliyun SMS rejected', ['code' => $resp->body->code, 'request_id' => $resp->body->requestId ?? '']);
-                throw new ApiException('【阿里云平台错误提示】：' . $resp->body->message);
+                throw new SmsSendRejectedException('Aliyun rejected SMS');
             }
             return [
                 'id' => $resp->body->requestId,
                 'content' => json_encode($data),
                 'template' => $templateId,
             ];
+        } catch (SmsSendRejectedException $e) {
+            throw $e;
         } catch (\Exception $e) {
             throw new ApiException('【阿里云平台错误提示】：' . $e->getMessage());
         }

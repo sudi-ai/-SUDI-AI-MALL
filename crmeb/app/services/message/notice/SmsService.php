@@ -84,6 +84,9 @@ class SmsService extends NoticeService
             //发送短信
             $res = $smsMake->send($phone, $smsId, $data);
             if ($res === false) {
+                if ($mark === 'verify_code') {
+                    throw new \app\services\user\SmsSendRejectedException('SMS provider rejected request');
+                }
                 throw new ApiException($smsMake->getError());
             }
             return true;

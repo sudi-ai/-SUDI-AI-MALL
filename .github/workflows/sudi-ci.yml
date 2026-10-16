@@ -4,7 +4,7 @@ on:
   push:
     branches: [sudi-ai-dev]
   pull_request:
-    branches: [master]
+    branches: [master, sudi-ai-dev]
   workflow_dispatch:
 
 jobs:
@@ -51,6 +51,8 @@ jobs:
           php -l crmeb/app/services/BaseServices.php
           php -l crmeb/app/api/route/v1.php
           php -l crmeb/app/services/user/SmsCodeServices.php
+          php -l crmeb/app/services/user/SmsRateLimitException.php
+          php -l crmeb/app/services/user/SmsSendRejectedException.php
           php -l crmeb/app/services/message/notice/SmsService.php
           php -l crmeb/crmeb/services/sms/storage/Aliyun.php
           php -l crmeb/app/api/controller/v1/wechat/WechatController.php
@@ -90,6 +92,8 @@ jobs:
           PY
       - name: Payment callback contract
         run: php tests/sudi/payment_callback_contract_test.php
+      - name: SMS request deduplication and countdown lifecycle
+        run: node tests/sudi/sms_send_test.cjs
 
   composer-smoke:
     runs-on: ubuntu-latest
