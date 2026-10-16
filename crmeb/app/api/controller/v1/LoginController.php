@@ -18,6 +18,7 @@ use think\facade\Config;
 use crmeb\services\CacheService;
 use app\services\user\LoginServices;
 use app\services\user\SmsCodeServices;
+use app\services\user\SmsRateLimitException;
 use app\services\user\PasswordSetupServices;
 use think\exception\ValidateException;
 use app\api\validate\user\RegisterValidates;
@@ -157,9 +158,17 @@ class LoginController
             return app('json')->fail($e->getMessage());
         }
         $time = sys_config('verify_expire_time', 1);
-        $smsCode = $this->services->verify($services, $phone, $type, $time);
+        try {
+            $smsCode = $this->services->verify($services, $phone, $type, $time);
+        } catch (SmsRateLimitException $e) {
+            $status = strpos($e->reason, 'provider_') === 0 ? 503 : 429;
+            return app('json')->code($status)->header(['Retry-After' => (string)$e->retryAfter])
+                ->make($status, $e->getMessage(), ['retry_after' => $e->retryAfter, 'reason' => $e->reason]);
+        }
         if ($smsCode) {
-            return app('json')->success('验证码发送成功');
+            return app('json')->success('验证码发送成功', [
+                'retry_after' => app()->make(SmsCodeServices::class)->cooldownSeconds(),
+            ]);
         } else {
             return app('json')->fail('验证码发送失败');
         }

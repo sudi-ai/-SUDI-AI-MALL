@@ -169,7 +169,7 @@
 				this.$refs.verify.hide()
 				let that = this;
 				verifyCode().then(res => {
-					registerVerify(that.phone, 'reset', res.data.key, this.captchaType, data.captchaVerification)
+					registerVerify({ phone: that.phone, type: 'reset', key: res.data.key, captchaType: this.captchaType, captchaVerification: data.captchaVerification })
 						.then(res => {
 							that.$util.Tips({
 								title: res.msg

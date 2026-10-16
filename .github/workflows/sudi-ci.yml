@@ -4,7 +4,7 @@ on:
   push:
     branches: [sudi-ai-dev]
   pull_request:
-    branches: [master]
+    branches: [master, sudi-ai-dev]
   workflow_dispatch:
 
 jobs:
@@ -90,6 +90,8 @@ jobs:
           PY
       - name: Payment callback contract
         run: php tests/sudi/payment_callback_contract_test.php
+      - name: SMS request deduplication and countdown lifecycle
+        run: node tests/sudi/sms_send_test.cjs
 
   composer-smoke:
     runs-on: ubuntu-latest

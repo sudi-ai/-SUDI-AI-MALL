@@ -1,41 +1,34 @@
-// +----------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +----------------------------------------------------------------------
-// | Copyright (c) 2016~2024 https://www.crmeb.com All rights reserved.
-// +----------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +----------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +----------------------------------------------------------------------
-
+import { smsDeadline } from '@/utils/smsSend.js';
 export default {
-	data() {
-		return {
-			disabled: false,
-			text: this.$t('获取验证码'),
-			runTime: undefined,
-			captchaType: 'clickWord'
-		};
-	},
-	methods: {
-		sendCode() {
-			if (this.disabled) return;
-			this.disabled = true;
-			let n = 60;
-			this.text = this.$t('剩余') + n + "s";
-			this.runTime = setInterval(() => {
-				n = n - 1;
-				if (n < 0) {
-					clearInterval(this.runTime);
-					this.disabled = false;
-					this.text = this.$t('重新获取');
-					return
-				}
-				this.text = this.$t('剩余') + n + "s";
-			}, 1000);
-		}
-	},
-	onHide() {
-		clearInterval(this.runTime);
-	}
+ data() { return { disabled: false, text: this.$t('获取验证码'), runTime: undefined, smsUntil: 0, captchaType: 'clickWord' }; },
+ methods: {
+  smsPhone() { return String(this.phone || this.account || ''); },
+  updateSmsCountdown() {
+   const n = Math.max(0, Math.ceil((this.smsUntil - Date.now()) / 1000));
+   this.disabled = n > 0;
+   this.text = n > 0 ? this.$t('剩余') + n + 's' : this.$t('重新获取');
+   if (!n) clearInterval(this.runTime);
+  },
+  sendCode() {
+   clearInterval(this.runTime);
+   this.smsUntil = smsDeadline(this.smsPhone()) || Date.now() + 60000;
+   this.updateSmsCountdown();
+   if (this.disabled) this.runTime = setInterval(() => this.updateSmsCountdown(), 250);
+  },
+  resumeSmsCountdown() {
+   clearInterval(this.runTime);
+   this.smsUntil = smsDeadline(this.smsPhone());
+   this.updateSmsCountdown();
+   if (this.disabled) this.runTime = setInterval(() => this.updateSmsCountdown(), 250);
+  }
+ },
+ watch: { phone() { this.resumeSmsCountdown(); }, account() { this.resumeSmsCountdown(); } },
+ created() {
+  this.smsDeadlineListener = phone => { if (phone === this.smsPhone()) this.resumeSmsCountdown(); };
+  uni.$on('sms:deadline', this.smsDeadlineListener);
+ },
+ onShow() { this.resumeSmsCountdown(); },
+ onHide() { clearInterval(this.runTime); },
+ onUnload() { clearInterval(this.runTime); },
+ beforeDestroy() { clearInterval(this.runTime); uni.$off('sms:deadline', this.smsDeadlineListener); }
 };

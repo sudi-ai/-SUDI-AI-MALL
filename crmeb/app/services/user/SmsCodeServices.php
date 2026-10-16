@@ -9,6 +9,11 @@ use think\facade\Config;
 /** Shared limits and one-time consumption for every phone verification entry. */
 class SmsCodeServices
 {
+    public function cooldownSeconds(): int
+    {
+        return max(60, (int)Config::get('sms.sendCooldownSeconds', 60));
+    }
+
     public function expiryMinutes($minutes): int
     {
         if (!preg_match('/^[1-9]\d?$/D', (string)$minutes) || (int)$minutes > 30) {
@@ -63,35 +68,47 @@ class SmsCodeServices
         $token = bin2hex(random_bytes(24));
         $pending = 'sms.auth.pending.' . $phone;
         $cooldown = 'sms.auth.cooldown.' . $phone;
-        $cooldownSeconds = max(60, (int)Config::get('sms.sendCooldownSeconds', 60));
+        $cooldownSeconds = $this->cooldownSeconds();
+        $now = time();
+        $daySeconds = max(1, strtotime('tomorrow', $now) - $now);
         $limits = [
             max(0, (int)Config::get('sms.maxMinuteCount', 5)),
             max(0, (int)Config::get('sms.maxPhoneCount', 20)),
             max(0, (int)Config::get('sms.maxIpCount', 50)),
         ];
         $reserve = <<<'LUA'
-if redis.call('EXISTS', KEYS[1]) == 1 or redis.call('EXISTS', KEYS[2]) == 1 then return 1 end
+local wait = math.max(redis.call('TTL', KEYS[1]), redis.call('TTL', KEYS[2]))
+if wait > 0 then return {1, wait} end
 for i = 3, 5 do
-    if tonumber(redis.call('GET', KEYS[i]) or '0') >= tonumber(ARGV[i + 1]) then return i end
+    if tonumber(redis.call('GET', KEYS[i]) or '0') >= tonumber(ARGV[i + 1]) then
+        return {i, math.max(1, math.min(redis.call('TTL', KEYS[i]), i == 3 and tonumber(ARGV[8]) or tonumber(ARGV[7])))}
+    end
 end
 for i = 3, 5 do
     local count = redis.call('INCR', KEYS[i])
-    if count == 1 then redis.call('EXPIRE', KEYS[i], i == 3 and 61 or ARGV[7]) end
+    if count == 1 then redis.call('EXPIRE', KEYS[i], i == 3 and ARGV[8] or ARGV[7]) end
 end
 redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
 redis.call('SET', KEYS[2], '1', 'EX', ARGV[3])
-return 0
+return {0, 0}
 LUA;
-        $result = (int)$this->run($reserve, [
-            $pending, $cooldown, 'sms.minute.' . $phone . date('YmdHi'),
-            'sms.phone.' . $phone . '.' . date('Ymd'), 'sms.ip.' . $ip . '.' . date('Ymd'),
-        ], [$token, max(120, $cooldownSeconds + 30), $cooldownSeconds, $limits[0], $limits[1], $limits[2], 86401]);
+        $keys = [
+            $pending, $cooldown, 'sms.minute.' . $phone . date('YmdHi', $now),
+            'sms.phone.' . $phone . '.' . date('Ymd', $now), 'sms.ip.' . $ip . '.' . date('Ymd', $now),
+        ];
+        $result = $this->run($reserve, $keys, [$token, max(120, $cooldownSeconds + 30), $cooldownSeconds, $limits[0], $limits[1], $limits[2], $daySeconds, 60 - ($now % 60)]);
         $errors = [1 => '发送过于频繁，请稍后重试', 3 => '同一手机号每分钟短信发送次数已达上限',
             4 => '同一手机号今日短信发送次数已达上限', 5 => '同一IP今日短信发送次数已达上限'];
-        if ($result !== 0) throw new ApiException($errors[$result] ?? '短信发送暂不可用');
+        $reason = (int)$result[0];
+        if ($reason !== 0) {
+            $seconds = max(1, (int)$result[1]);
+            $reasons = [1 => 'cooldown', 3 => 'phone_minute', 4 => 'phone_daily', 5 => 'ip_daily'];
+            $message = $reason === 1 ? '请在' . $seconds . '秒后重新获取验证码' : ($errors[$reason] ?? '短信发送暂不可用');
+            throw new SmsRateLimitException($message, $seconds, $reasons[$reason] ?? 'unavailable');
+        }
 
         try {
-            if ($send() !== true) throw new \RuntimeException('SMS provider rejected request');
+            if ($send() !== true) throw new SmsSendRejectedException('SMS provider rejected request');
             // Numeric codes are stored verbatim by ThinkPHP's Redis serializer.
             // Publish and reset attempts together, only for this reservation owner.
             $publish = <<<'LUA'
@@ -105,8 +122,22 @@ LUA;
                 throw new \RuntimeException('SMS reservation expired');
             }
             return $code;
+        } catch (SmsSendRejectedException $e) {
+            // Keep the short cooldown against repeated rejected attempts, but refund
+            // delivery quotas only while this reservation still owns the request.
+            $this->run(<<<'LUA'
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+for i = 3, 5 do
+    if tonumber(redis.call('GET', KEYS[i]) or '0') > 0 then redis.call('DECR', KEYS[i]) end
+end
+return 1
+LUA
+                , $keys, [$token]);
+            throw new SmsRateLimitException('短信平台未接受发送请求，请稍后重试或联系商城客服',
+                max(1, (int)$this->run("return redis.call('TTL', KEYS[1])", [$cooldown])), 'provider_rejected');
         } catch (\Throwable $e) {
-            throw new ApiException('短信发送未完成，请在冷却结束后重新获取验证码');
+            throw new SmsRateLimitException('短信发送结果暂未确认，请在冷却结束后重新获取验证码',
+                max(1, (int)$this->run("return redis.call('TTL', KEYS[1])", [$cooldown])), 'provider_unknown');
         } finally {
             try {
                 $this->run("if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0", [$pending], [$token]);

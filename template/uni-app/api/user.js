@@ -9,6 +9,7 @@
 // +----------------------------------------------------------------------
 
 import request from "@/utils/request.js";
+import { sendSms } from '@/utils/smsSend.js';
 
 /**
  * 获取用户信息
@@ -61,9 +62,9 @@ export function getCodeApi() {
  * @param data object 用户手机号
  */
 export function registerVerify(data) {
-	return request.post("register/verify", data, {
-		noAuth: true
-	});
+	return sendSms(data, payload => request.post('register/verify', payload, {
+		noAuth: true, noVerify: true
+	}));
 }
 
 /**
