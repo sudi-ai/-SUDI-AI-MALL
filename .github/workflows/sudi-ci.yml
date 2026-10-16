@@ -51,6 +51,8 @@ jobs:
           php -l crmeb/app/services/BaseServices.php
           php -l crmeb/app/api/route/v1.php
           php -l crmeb/app/services/user/SmsCodeServices.php
+          php -l crmeb/app/services/user/SmsRateLimitException.php
+          php -l crmeb/app/services/user/SmsSendRejectedException.php
           php -l crmeb/app/services/message/notice/SmsService.php
           php -l crmeb/crmeb/services/sms/storage/Aliyun.php
           php -l crmeb/app/api/controller/v1/wechat/WechatController.php

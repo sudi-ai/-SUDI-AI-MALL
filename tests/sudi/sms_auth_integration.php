@@ -272,9 +272,14 @@ foreach (['minute', 'phone', 'ip'] as $bucket) {
 }
 $subsecondPhone = smsPhone();
 $codes->raw("return redis.call('SET', KEYS[1], '1', 'PX', 500)", ['sms.auth.cooldown.' . $subsecondPhone]);
-smsCheck(smsRejected(function () use ($codes, $subsecondPhone) {
-    $codes->issue($subsecondPhone, '192.0.2.99', 654321, 5, function () { throw new RuntimeException('must not send early'); });
-}), 'subsecond cooldown cannot be bypassed by TTL rounding');
+$earlyCalls = 0;
+try {
+    $codes->issue($subsecondPhone, '192.0.2.99', 654321, 5, function () use (&$earlyCalls) { $earlyCalls++; return true; });
+    throw new RuntimeException('Subsecond cooldown unexpectedly allowed');
+} catch (\app\services\user\SmsRateLimitException $e) {
+    smsCheck($e->reason === 'cooldown' && $e->retryAfter === 1 && $earlyCalls === 0,
+        'subsecond cooldown cannot be bypassed by TTL rounding');
+}
 smsCheck($ttl > 280 && $ttl <= 300, 'code expiry remains separate from the sixty-second cooldown');
 try {
     Config::set(array_merge($cacheConfig, ['default' => 'file']), 'cache');

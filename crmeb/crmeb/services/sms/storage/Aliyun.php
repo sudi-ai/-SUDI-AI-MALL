@@ -92,7 +92,7 @@ class Aliyun extends BaseSms
             }
             if ($resp->body->code !== 'OK') {
                 Log::warning('Aliyun SMS rejected', ['code' => $resp->body->code, 'request_id' => $resp->body->requestId ?? '']);
-                  throw new SmsSendRejectedException('Aliyun rejected SMS');
+                throw new SmsSendRejectedException('Aliyun rejected SMS');
             }
             return [
                 'id' => $resp->body->requestId,

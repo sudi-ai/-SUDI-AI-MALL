@@ -27,6 +27,7 @@ export default {
   this.smsDeadlineListener = phone => { if (phone === this.smsPhone()) this.resumeSmsCountdown(); };
   uni.$on('sms:deadline', this.smsDeadlineListener);
  },
+ mounted() { this.resumeSmsCountdown(); },
  onShow() { this.resumeSmsCountdown(); },
  onHide() { clearInterval(this.runTime); },
  onUnload() { clearInterval(this.runTime); },
